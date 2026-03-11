@@ -1,10 +1,35 @@
-# ClarityLang
+# CLAUDE.md
 
-## What This Is
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-ClarityLang is a programming language designed specifically for LLM code generation and comprehension. It transpiles to TypeScript (primary target), with Python and Rust as future targets.
+## Build & Development Commands
 
-## Design Principles (non-negotiable)
+- `npm run build` — Build with tsup (outputs to `dist/`)
+- `npm test` — Run all tests (Vitest)
+- `npm run test:watch` — Run tests in watch mode
+- `npx vitest run tests/lexer.test.ts` — Run a single test file
+- `npx vitest run -t "test name"` — Run a single test by name
+- `npm run clarity -- compile <file.clarity>` — Compile a .clarity file to TypeScript (uses tsx)
+- `npm run clarity -- check <file.clarity>` — Type-check a .clarity file without emitting
+
+## Architecture
+
+The compiler pipeline flows linearly:
+
+```
+.clarity source → Lexer → Parser (AST) → Type Checker → Emitter → .ts output
+```
+
+- **Lexer** (`src/lexer/`): Tokenizes source into tokens. Keywords map via `KEYWORDS` in `tokens.ts`. Handles `keyword...end` block structure.
+- **Parser** (`src/parser/`): Hand-written recursive descent parser (no parser generators). Builds AST from token stream. All AST node types are discriminated unions on a `kind` field, defined in `ast.ts`.
+- **Type Checker** (`src/typechecker/typechecker.ts`): Validates types at function boundaries and struct fields. Infers local variable types. Includes tail recursion analysis (`tailrec.ts`) and mutual recursion trampoline optimization (`trampoline.ts`).
+- **Emitter** (`src/emitter/typescript.ts`): Walks AST and produces TypeScript. Emitter methods follow the pattern `emitNodeKind(node): string`. One emitter file per target language (only TypeScript exists currently).
+- **CLI** (`src/cli.ts`): Entry point for `clarity compile|check|fmt` commands. Orchestrates the full pipeline.
+- **Public API** (`src/index.ts`): Re-exports all compiler components for programmatic use.
+
+Tests live in `tests/` with one test file per compiler phase (e.g., `tests/lexer.test.ts`, `tests/parser.test.ts`). Example `.clarity` programs are in `examples/`.
+
+## Design Principles
 
 1. **Explicit Intent** — keywords read as English phrases, no magic methods or operator overloading
 2. **Flat Scope** — max nesting depth of 3, pipelines (`|>`) as primary data flow
@@ -13,26 +38,26 @@ ClarityLang is a programming language designed specifically for LLM code generat
 5. **Errors as Values** — `Result<T,E>` + `?` propagation, no exceptions
 6. **Semantic Annotations** — `@purpose`, `@invariant`, `@example` carry meaning
 
-## Architecture
+## Coding Conventions
 
-```
-.clarity source → Lexer → Parser (AST) → Type Checker → Emitter → .ts output
-```
+- Every AST node type is a discriminated union with a `kind` field
+- Emitter methods follow the pattern `emitNodeKind(node): string`
+- Tests go in `tests/` mirroring `src/` structure
+- One file per concern, keep files under 300 lines
+- Use descriptive names, no abbreviations
+- ESM modules (`"type": "module"` in package.json), imports use `.js` extensions
 
-- **Lexer** (`src/lexer/`): Tokenizes `keyword...end` blocks. Tokens: keywords, identifiers, literals, operators (`|>`, `=>`, `?`, `->`), annotations (`@word`)
-- **Parser** (`src/parser/`): Builds AST. Context-free grammar, no lookahead needed. AST node types mirror the EBNF grammar.
-- **Type Checker** (`src/typechecker/`): Validates types at function boundaries and struct fields. Infers local variable types. Checks Result/Maybe usage.
-- **Emitter** (`src/emitter/`): Walks AST and produces TypeScript. One emitter per target language.
+## Language Reference
 
-## Language Keywords
+### Keywords
 
 `define`, `struct`, `enum`, `has`, `is`, `as`, `end`, `if`, `then`, `else`, `for`, `in`, `do`, `match`, `on`, `case`, `return`, `check`, `or`, `with`, `where`, `each`, `async`, `await`, `all`, `import`, `from`, `self`, `and`, `not`, `type`
 
-## Built-in Types
+### Built-in Types
 
 `Text`, `Number`, `Boolean`, `Void`, `List<T>`, `Map<K,V>`, `Set<T>`, `Maybe<T>`, `Result<T,E>`, `Duration`, `Date`, `Timestamp`
 
-## Key Syntax Patterns
+### Key Syntax Patterns
 
 ```
 -- Function
@@ -69,19 +94,3 @@ check condition or return error_value
 -- Immutable update
 new_record = old_record with field: new_value
 ```
-
-## Tech Stack
-
-- **Language**: TypeScript (the transpiler itself is written in TS)
-- **Runtime**: Node.js 18+
-- **Test runner**: Vitest
-- **Build**: tsup
-- **No external parser generators** — hand-written recursive descent parser
-
-## Coding Conventions
-
-- Use descriptive names, no abbreviations
-- Every AST node type is a discriminated union with a `kind` field
-- Emitter methods follow the pattern `emitNodeKind(node): string`
-- Tests go in `tests/` mirroring `src/` structure
-- One file per concern, keep files under 300 lines
