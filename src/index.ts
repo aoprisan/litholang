@@ -1,5 +1,7 @@
 export { TokenKind, KEYWORDS } from "./lexer/tokens.js";
 export type { Token } from "./lexer/tokens.js";
+export { Lexer } from "./lexer/lexer.js";
+export { Parser } from "./parser/parser.js";
 
 export type {
   Program,

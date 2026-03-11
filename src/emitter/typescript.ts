@@ -1,6 +1,11 @@
 import {
   Program,
+  Declaration,
   FunctionDef,
+  StructDef,
+  EnumDef,
+  TypeAlias,
+  ImportDecl,
   Statement,
   Expression,
   TypeNode,
@@ -86,11 +91,28 @@ export class TypeScriptEmitter {
         continue; // Already handled by trampoline
       }
 
-      if (decl.kind === "FunctionDef") {
-        chunks.push(this.emitFunctionDef(decl));
-        chunks.push("");
+      switch (decl.kind) {
+        case "FunctionDef":
+          chunks.push(this.emitFunctionDef(decl));
+          chunks.push("");
+          break;
+        case "StructDef":
+          chunks.push(this.emitStructDef(decl));
+          chunks.push("");
+          break;
+        case "EnumDef":
+          chunks.push(this.emitEnumDef(decl));
+          chunks.push("");
+          break;
+        case "TypeAlias":
+          chunks.push(this.emitTypeAlias(decl));
+          chunks.push("");
+          break;
+        case "ImportDecl":
+          chunks.push(this.emitImportDecl(decl));
+          chunks.push("");
+          break;
       }
-      // TODO: Other declaration types when emitter is fully implemented
     }
 
     if (this.errors.length > 0) {
@@ -117,6 +139,42 @@ export class TypeScriptEmitter {
     }
 
     return this.emitFunction(targetFunc, tailRecResult.isTailRecursive);
+  }
+
+  emitStructDef(struct: StructDef): string {
+    const lines: string[] = [];
+    lines.push(`interface ${struct.name} {`);
+    for (const field of struct.fields) {
+      lines.push(`  ${field.name}: ${this.emitType(field.type)};`);
+    }
+    lines.push("}");
+
+    // Emit methods as standalone functions
+    for (const method of struct.methods) {
+      lines.push("");
+      lines.push(this.emitFunctionDef(method));
+    }
+
+    return lines.join("\n");
+  }
+
+  emitEnumDef(enumDef: EnumDef): string {
+    const lines: string[] = [];
+    lines.push(`enum ${enumDef.name} {`);
+    for (const variant of enumDef.variants) {
+      lines.push(`  ${variant},`);
+    }
+    lines.push("}");
+    return lines.join("\n");
+  }
+
+  emitTypeAlias(alias: TypeAlias): string {
+    return `type ${alias.name} = ${this.emitType(alias.type)};`;
+  }
+
+  emitImportDecl(decl: ImportDecl): string {
+    const names = decl.names.join(", ");
+    return `import { ${names} } from "${decl.source}";`;
   }
 
   private emitFunction(func: FunctionDef, isTailRecOptimized: boolean): string {
