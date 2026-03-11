@@ -6,6 +6,7 @@ import {
   EnumDef,
   TypeAlias,
   ImportDecl,
+  ExternDef,
   Statement,
   Expression,
   TypeNode,
@@ -116,6 +117,10 @@ export class TypeScriptEmitter {
           chunks.push(this.emitImportDecl(decl));
           chunks.push("");
           break;
+        case "ExternDef":
+          chunks.push(this.emitExternDef(decl));
+          chunks.push("");
+          break;
       }
     }
 
@@ -201,6 +206,10 @@ export class TypeScriptEmitter {
   emitImportDecl(decl: ImportDecl): string {
     const names = decl.names.join(", ");
     return `import { ${names} } from "${decl.source}";`;
+  }
+
+  emitExternDef(decl: ExternDef): string {
+    return `import { ${decl.name} } from "${decl.source}";`;
   }
 
   private emitFunction(func: FunctionDef, isTailRecOptimized: boolean): string {

@@ -106,6 +106,22 @@ export class TypeChecker {
       case "ImportDecl":
         // Imports introduce names we can't validate — treat as known
         break;
+      case "ExternDef":
+        if (this.functions.has(decl.name)) {
+          this.addError(`Duplicate function definition '${decl.name}'`, decl.position);
+        }
+        // Register extern as a synthetic FunctionDef for call-site validation
+        this.functions.set(decl.name, {
+          kind: "FunctionDef",
+          name: decl.name,
+          params: decl.params,
+          returnType: decl.returnType,
+          body: [],
+          annotations: decl.annotations,
+          isAsync: decl.isAsync,
+          position: decl.position,
+        });
+        break;
     }
   }
 
@@ -124,6 +140,15 @@ export class TypeChecker {
         this.validateTypeNode(decl.type);
         break;
       case "ImportDecl":
+        break;
+      case "ExternDef":
+        // Validate parameter and return types
+        for (const param of decl.params) {
+          this.validateTypeNode(param.type);
+        }
+        if (decl.returnType) {
+          this.validateTypeNode(decl.returnType);
+        }
         break;
     }
   }

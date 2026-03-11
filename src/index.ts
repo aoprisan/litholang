@@ -13,6 +13,7 @@ export type {
   FunctionDef,
   StructDef,
   EnumDef,
+  ExternDef,
   Annotation,
 } from "./parser/ast.js";
 

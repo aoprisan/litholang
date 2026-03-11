@@ -342,12 +342,24 @@ export interface ImportDecl {
   position: Position;
 }
 
+export interface ExternDef {
+  kind: "ExternDef";
+  name: string;
+  params: Parameter[];
+  returnType: TypeNode | null;
+  source: string;
+  isAsync: boolean;
+  annotations: Annotation[];
+  position: Position;
+}
+
 export type Declaration =
   | FunctionDef
   | StructDef
   | EnumDef
   | TypeAlias
-  | ImportDecl;
+  | ImportDecl
+  | ExternDef;
 
 // ─── Program Root ───
 

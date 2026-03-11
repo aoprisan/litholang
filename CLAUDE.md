@@ -51,7 +51,7 @@ Tests live in `tests/` with one test file per compiler phase (e.g., `tests/lexer
 
 ### Keywords
 
-`define`, `struct`, `enum`, `has`, `is`, `as`, `end`, `if`, `then`, `else`, `for`, `in`, `do`, `match`, `on`, `case`, `return`, `check`, `or`, `with`, `where`, `each`, `async`, `await`, `all`, `import`, `from`, `self`, `and`, `not`, `type`
+`define`, `struct`, `enum`, `has`, `is`, `as`, `end`, `if`, `then`, `else`, `for`, `in`, `do`, `match`, `on`, `case`, `return`, `check`, `or`, `with`, `where`, `each`, `async`, `await`, `all`, `import`, `from`, `self`, `and`, `not`, `type`, `extern`
 
 ### Built-in Types
 
@@ -86,6 +86,11 @@ result = fallible_call()?
 match expr on
   case pattern => result
   case _ => default
+end
+
+-- FFI (extern function)
+extern define readFile(path: Text) -> Text
+  from "fs"
 end
 
 -- Check guard

@@ -42,6 +42,7 @@ export enum TokenKind {
   And = "and",
   Not = "not",
   Type = "type",
+  Extern = "extern",
 
   // Operators
   Pipe = "|>",
@@ -114,6 +115,7 @@ export const KEYWORDS: Record<string, TokenKind> = {
   and: TokenKind.And,
   not: TokenKind.Not,
   type: TokenKind.Type,
+  extern: TokenKind.Extern,
   true: TokenKind.BooleanLiteral,
   false: TokenKind.BooleanLiteral,
 };

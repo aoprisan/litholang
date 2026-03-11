@@ -7,6 +7,7 @@ import {
   EnumDef,
   TypeAlias,
   ImportDecl,
+  ExternDef,
   Statement,
   Expression,
   TypeNode,
@@ -67,6 +68,8 @@ export class Parser {
         return this.parseTypeAlias();
       case TokenKind.Import:
         return this.parseImportDecl();
+      case TokenKind.Extern:
+        return this.parseExternDef(annotations);
       default:
         throw this.error(`Expected declaration, got '${token.value}'`);
     }
@@ -258,6 +261,47 @@ export class Parser {
       names,
       source,
       position: { line: importToken.line, column: importToken.column },
+    };
+  }
+
+  private parseExternDef(annotations: Annotation[]): ExternDef {
+    const externToken = this.consume(TokenKind.Extern, "'extern'");
+
+    let isAsync = false;
+    if (this.check(TokenKind.Async)) {
+      isAsync = true;
+      this.advance();
+    }
+
+    this.consume(TokenKind.Define, "'define'");
+    const name = this.consume(TokenKind.Identifier, "function name").value;
+
+    this.consume(TokenKind.LeftParen, "'('");
+    const params = this.parseParameterList();
+    this.consume(TokenKind.RightParen, "')'");
+
+    let returnType: TypeNode | null = null;
+    if (this.check(TokenKind.Arrow)) {
+      this.advance();
+      returnType = this.parseType();
+    }
+
+    this.skipNewlines();
+    this.consume(TokenKind.From, "'from'");
+    const source = this.consume(TokenKind.TextLiteral, "module path").value;
+    this.skipNewlines();
+
+    this.consume(TokenKind.End, "'end'");
+
+    return {
+      kind: "ExternDef",
+      name,
+      params,
+      returnType,
+      source,
+      isAsync,
+      annotations,
+      position: { line: externToken.line, column: externToken.column },
     };
   }
 
