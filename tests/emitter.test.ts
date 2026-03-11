@@ -117,6 +117,26 @@ end`);
     expect(output).toContain("async function fetch(url: string): string {");
   });
 
+  it("emits await expression", () => {
+    const output = compileToTS(`async define fetch_data(url: Text) -> Text as
+  result = await get(url)
+  return result
+end`);
+
+    expect(output).toContain("async function fetch_data(url: string): string {");
+    expect(output).toContain("let result = await get(url);");
+  });
+
+  it("emits all expression as Promise.all", () => {
+    const output = compileToTS(`async define fetch_both(a: Text, b: Text) -> List<Text> as
+  results = all [get(a), get(b)]
+  return results
+end`);
+
+    expect(output).toContain("async function fetch_both");
+    expect(output).toContain("let results = await Promise.all([get(a), get(b)]);");
+  });
+
   it("emits @tailrec function as while loop (end to end)", () => {
     const output = compileToTS(`@tailrec
 define factorial(n: Number, acc: Number) -> Number as

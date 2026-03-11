@@ -463,6 +463,12 @@ export class TypeScriptEmitter {
           .join(", ");
         return `{ ${fields} }`;
       }
+      case "AwaitExpr":
+        return `await ${this.emitExpression(expr.expr)}`;
+      case "AllExpr": {
+        const exprs = expr.exprs.map((e) => this.emitExpression(e)).join(", ");
+        return `await Promise.all([${exprs}])`;
+      }
     }
   }
 

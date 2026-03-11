@@ -227,6 +227,43 @@ end`);
     }
   });
 
+  it("parses await expression", () => {
+    const ast = parse(`async define fetch_data(url: Text) -> Text as
+  result = await get(url)
+  return result
+end`);
+
+    const func = ast.declarations[0];
+    if (func.kind === "FunctionDef") {
+      expect(func.isAsync).toBe(true);
+      const assign = func.body[0];
+      if (assign.kind === "Assignment") {
+        expect(assign.value.kind).toBe("AwaitExpr");
+        if (assign.value.kind === "AwaitExpr") {
+          expect(assign.value.expr.kind).toBe("CallExpr");
+        }
+      }
+    }
+  });
+
+  it("parses all expression", () => {
+    const ast = parse(`async define fetch_all(a: Text, b: Text) -> List<Text> as
+  results = all [get(a), get(b)]
+  return results
+end`);
+
+    const func = ast.declarations[0];
+    if (func.kind === "FunctionDef") {
+      const assign = func.body[0];
+      if (assign.kind === "Assignment") {
+        expect(assign.value.kind).toBe("AllExpr");
+        if (assign.value.kind === "AllExpr") {
+          expect(assign.value.exprs).toHaveLength(2);
+        }
+      }
+    }
+  });
+
   it("parses with expression", () => {
     const ast = parse(`define test(p: Point) -> Point as
   return p with x: 10, y: 20

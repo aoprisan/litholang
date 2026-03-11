@@ -148,6 +148,18 @@ export interface ConstructExpr {
   position: Position;
 }
 
+export interface AwaitExpr {
+  kind: "AwaitExpr";
+  expr: Expression;
+  position: Position;
+}
+
+export interface AllExpr {
+  kind: "AllExpr";
+  exprs: Expression[];
+  position: Position;
+}
+
 export type Expression =
   | NumberLiteral
   | TextLiteral
@@ -164,7 +176,9 @@ export type Expression =
   | PropagateExpr
   | WithExpr
   | ListLiteral
-  | ConstructExpr;
+  | ConstructExpr
+  | AwaitExpr
+  | AllExpr;
 
 // ─── Statement Nodes ───
 

@@ -785,6 +785,15 @@ export class Parser {
   }
 
   private parseUnary(): Expression {
+    if (this.check(TokenKind.Await)) {
+      const token = this.advance();
+      const expr = this.parseUnary();
+      return {
+        kind: "AwaitExpr",
+        expr,
+        position: { line: token.line, column: token.column },
+      };
+    }
     if (this.check(TokenKind.Not)) {
       const token = this.advance();
       const operand = this.parseUnary();
@@ -1006,11 +1015,28 @@ export class Parser {
       };
     }
 
-    // Keywords that can appear as identifiers in some contexts (ok, err, some, none)
-    if (
-      token.kind === TokenKind.On ||
-      token.kind === TokenKind.All
-    ) {
+    // all [expr1, expr2, ...] — concurrent await
+    if (token.kind === TokenKind.All) {
+      this.advance();
+      this.consume(TokenKind.LeftBracket, "'['");
+      const exprs: Expression[] = [];
+      if (!this.check(TokenKind.RightBracket)) {
+        exprs.push(this.parseExpression());
+        while (this.check(TokenKind.Comma)) {
+          this.advance();
+          exprs.push(this.parseExpression());
+        }
+      }
+      this.consume(TokenKind.RightBracket, "']'");
+      return {
+        kind: "AllExpr",
+        exprs,
+        position: { line: token.line, column: token.column },
+      };
+    }
+
+    // Keywords that can appear as identifiers in some contexts
+    if (token.kind === TokenKind.On) {
       this.advance();
       return {
         kind: "IdentifierExpr",
