@@ -1,0 +1,23 @@
+{
+  "name": "claritylang",
+  "version": "0.1.0",
+  "description": "A programming language designed for LLM code generation — transpiles to TypeScript",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "clarity": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsup src/index.ts src/cli.ts --format esm --dts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "clarity": "tsx src/cli.ts"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.0",
+    "vitest": "^1.6.0"
+  },
+  "keywords": ["programming-language", "transpiler", "typescript", "llm"]
+}

@@ -1,0 +1,37 @@
+@purpose "Model an order lifecycle"
+@invariant "Orders follow: pending -> paid -> shipped -> delivered"
+
+enum OrderStatus is
+  Pending
+  Paid
+  Shipped
+  Delivered
+  Cancelled
+end
+
+struct Order has
+  id: Text
+  status: OrderStatus
+  items: List<Item>
+  total: Number
+end
+
+define transition(order: Order, action: Text) -> Result<Order, Text> as
+  match (order.status, action) on
+    case (Pending, "pay") =>
+      return ok(order with status: Paid)
+
+    case (Paid, "ship") =>
+      tracking = generate_tracking()
+      return ok(order with status: Shipped, tracking: tracking)
+
+    case (Shipped, "deliver") =>
+      return ok(order with status: Delivered)
+
+    case (Pending, "cancel") =>
+      return ok(order with status: Cancelled)
+
+    case (current, act) =>
+      return err("Cannot {act} from {current}")
+  end
+end

@@ -1,0 +1,27 @@
+@purpose "Process daily sales and generate report"
+
+define daily_report(date: Date) -> Result<Report, Error> as
+  transactions = db.sales
+    |> filter(where .date == date)
+    |> filter(where .status == "completed")
+    |> collect
+
+  summary = transactions
+    |> group(by .category)
+    |> map(each group =>
+        category: group.key,
+        total: group.values |> sum(of .amount),
+        count: group.values.length
+      )
+    |> sort(by .total, descending)
+
+  report = Report(
+    date: date,
+    total_revenue: transactions |> sum(of .amount),
+    transaction_count: transactions.length,
+    by_category: summary,
+    generated_at: now()
+  )
+
+  return ok(report)
+end

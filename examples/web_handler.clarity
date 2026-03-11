@@ -1,0 +1,42 @@
+@purpose "Handle user registration with validation"
+
+import Hash from "crypto"
+
+struct NewUser has
+  email: Text
+  password: Text
+  name: Text
+end
+
+struct UserResponse has
+  id: Text
+  email: Text
+  name: Text
+  created_at: Timestamp
+end
+
+define handle_register(request: HttpRequest) -> Result<HttpResponse, Error> as
+  body = request.parse_json(as: NewUser)?
+
+  check body.email matches email_pattern
+    or return bad_request("Invalid email")
+
+  check body.password.length >= 8
+    or return bad_request("Password too short")
+
+  hashed = Hash.password(body.password)
+
+  user = db.users.insert(
+    email: body.email,
+    password_hash: hashed,
+    name: body.name,
+    created_at: now()
+  )?
+
+  return ok(json: UserResponse(
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    created_at: user.created_at
+  ))
+end
