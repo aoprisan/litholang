@@ -32,4 +32,7 @@ export type {
   TrampolineError,
 } from "./typechecker/trampoline.js";
 
+export { TypeChecker } from "./typechecker/typechecker.js";
+export type { TypeError, ClarityType } from "./typechecker/typechecker.js";
+
 export { TypeScriptEmitter } from "./emitter/typescript.js";

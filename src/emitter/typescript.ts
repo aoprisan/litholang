@@ -41,9 +41,13 @@ import {
  */
 export class TypeScriptEmitter {
   private errors: string[] = [];
+  private needsResultHelper = false;
+  private needsMaybeHelper = false;
 
   emit(program: Program): string {
     this.errors = [];
+    this.needsResultHelper = false;
+    this.needsMaybeHelper = false;
     const chunks: string[] = [];
 
     // Handle @trampoline groups first — they rewrite declarations
@@ -121,7 +125,29 @@ export class TypeScriptEmitter {
       );
     }
 
-    return chunks.join("\n").trimEnd() + "\n";
+    // Prepend helper functions if needed
+    const helpers: string[] = [];
+    if (this.needsResultHelper) {
+      helpers.push(
+        `function __propagateResult<T, E>(result: { ok: true; value: T } | { ok: false; error: E }): T {`,
+        `  if (!result.ok) throw { __clarityPropagate: true, value: result };`,
+        `  return result.value;`,
+        `}`,
+        "",
+      );
+    }
+    if (this.needsMaybeHelper) {
+      helpers.push(
+        `function __propagateMaybe<T>(value: T | null): T {`,
+        `  if (value === null) throw { __clarityPropagate: true, value: null };`,
+        `  return value;`,
+        `}`,
+        "",
+      );
+    }
+
+    const allChunks = [...helpers, ...chunks];
+    return allChunks.join("\n").trimEnd() + "\n";
   }
 
   emitFunctionDef(func: FunctionDef): string {
@@ -185,30 +211,100 @@ export class TypeScriptEmitter {
       ? `: ${this.emitType(func.returnType)}`
       : "";
     const asyncPrefix = func.isAsync ? "async " : "";
+    const usesPropagation = this.bodyUsesPropagation(func.body);
 
     const lines: string[] = [];
     lines.push(`${asyncPrefix}function ${func.name}(${params})${returnType} {`);
 
+    const baseIndent = usesPropagation ? 4 : 2;
+
+    if (usesPropagation) {
+      lines.push("  try {");
+    }
+
     if (isTailRecOptimized) {
-      // Emit as while(true) loop
-      lines.push("  while (true) {");
-      // The body is wrapped in a ForStatement sentinel — unwrap it
+      lines.push(`${" ".repeat(baseIndent)}while (true) {`);
       const loopBody =
         func.body.length === 1 && func.body[0].kind === "ForStatement"
           ? func.body[0].body
           : func.body;
       for (const stmt of loopBody) {
-        lines.push(this.emitStatement(stmt, 4));
+        lines.push(this.emitStatement(stmt, baseIndent + 2));
       }
-      lines.push("  }");
+      lines.push(`${" ".repeat(baseIndent)}}`);
     } else {
       for (const stmt of func.body) {
-        lines.push(this.emitStatement(stmt, 2));
+        lines.push(this.emitStatement(stmt, baseIndent));
       }
+    }
+
+    if (usesPropagation) {
+      lines.push("  } catch (__e: unknown) {");
+      lines.push("    if (__e && typeof __e === \"object\" && \"__clarityPropagate\" in __e) return (__e as any).value;");
+      lines.push("    throw __e;");
+      lines.push("  }");
     }
 
     lines.push("}");
     return lines.join("\n");
+  }
+
+  private bodyUsesPropagation(body: Statement[]): boolean {
+    for (const stmt of body) {
+      if (this.statementUsesPropagation(stmt)) return true;
+    }
+    return false;
+  }
+
+  private statementUsesPropagation(stmt: Statement): boolean {
+    switch (stmt.kind) {
+      case "ReturnStatement":
+        return this.exprUsesPropagation(stmt.value);
+      case "Assignment":
+        return this.exprUsesPropagation(stmt.value);
+      case "ExpressionStatement":
+        return this.exprUsesPropagation(stmt.expr);
+      case "IfStatement":
+        return this.bodyUsesPropagation(stmt.thenBlock) ||
+          stmt.elseIfClauses.some(c => this.bodyUsesPropagation(c.block)) ||
+          (stmt.elseBlock !== null && this.bodyUsesPropagation(stmt.elseBlock));
+      case "ForStatement":
+        return this.bodyUsesPropagation(stmt.body);
+      case "MatchStatement":
+        return stmt.cases.some(c =>
+          Array.isArray(c.body) ? this.bodyUsesPropagation(c.body) : this.exprUsesPropagation(c.body)
+        );
+      case "CheckStatement":
+        return this.exprUsesPropagation(stmt.condition) ||
+          this.exprUsesPropagation(stmt.fallback);
+    }
+  }
+
+  private exprUsesPropagation(expr: Expression): boolean {
+    switch (expr.kind) {
+      case "PropagateExpr": return true;
+      case "CallExpr":
+        return this.exprUsesPropagation(expr.callee) ||
+          expr.args.some(a => this.exprUsesPropagation(a.value));
+      case "BinaryExpr":
+        return this.exprUsesPropagation(expr.left) || this.exprUsesPropagation(expr.right);
+      case "UnaryExpr":
+        return this.exprUsesPropagation(expr.operand);
+      case "PipelineExpr":
+        return this.exprUsesPropagation(expr.source) ||
+          expr.steps.some(s => s.args.some(a => this.exprUsesPropagation(a.value)));
+      case "DotAccess":
+        return this.exprUsesPropagation(expr.object);
+      case "WithExpr":
+        return this.exprUsesPropagation(expr.base) ||
+          expr.updates.some(u => this.exprUsesPropagation(u.value));
+      case "AwaitExpr":
+        return this.exprUsesPropagation(expr.expr);
+      case "ListLiteral":
+        return expr.elements.some(e => this.exprUsesPropagation(e));
+      default:
+        return false;
+    }
   }
 
   private emitTrampolineInternal(func: FunctionDef): string {
@@ -446,9 +542,10 @@ export class TypeScriptEmitter {
         const params = expr.params.map((p) => p.name).join(", ");
         return `(${params}) => ${this.emitExpression(expr.body)}`;
       }
-      case "PropagateExpr":
-        // Simplified: would need proper error-handling context
-        return `unwrap(${this.emitExpression(expr.expr)})`;
+      case "PropagateExpr": {
+        this.needsResultHelper = true;
+        return `__propagateResult(${this.emitExpression(expr.expr)})`;
+      }
       case "WithExpr": {
         const updates = expr.updates
           .map((u) => `${u.field}: ${this.emitExpression(u.value)}`)

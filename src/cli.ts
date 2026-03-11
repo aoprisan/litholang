@@ -13,6 +13,7 @@
 import { readFileSync, writeFileSync } from "fs";
 import { Lexer } from "./lexer/lexer.js";
 import { Parser } from "./parser/parser.js";
+import { TypeChecker } from "./typechecker/typechecker.js";
 import { TypeScriptEmitter } from "./emitter/typescript.js";
 
 const args = process.argv.slice(2);
@@ -42,6 +43,16 @@ function compile(sourcePath: string): string {
   const tokens = lexer.tokenize();
   const parser = new Parser(tokens);
   const ast = parser.parse();
+
+  const checker = new TypeChecker();
+  const typeErrors = checker.check(ast);
+  if (typeErrors.length > 0) {
+    const messages = typeErrors.map(
+      (e) => `  ${e.position.line}:${e.position.column}: ${e.message}`
+    );
+    throw new Error(`Type errors:\n${messages.join("\n")}`);
+  }
+
   const emitter = new TypeScriptEmitter();
   return emitter.emit(ast);
 }
