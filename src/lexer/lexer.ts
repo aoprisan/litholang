@@ -18,6 +18,8 @@ export class Lexer {
   private line: number = 1;
   private column: number = 1;
   private tokens: Token[] = [];
+  private interpolationDepth: number = 0; // track nested {expr} in strings
+  private braceDepth: number = 0; // track braces within interpolation expressions
 
   constructor(source: string) {
     this.source = source;
@@ -30,6 +32,12 @@ export class Lexer {
       if (this.pos >= this.source.length) break;
 
       const ch = this.source[this.pos];
+
+      // Handle } that closes an interpolation expression
+      if (ch === "}" && this.interpolationDepth > 0 && this.braceDepth === 0) {
+        this.continueTextLiteral();
+        continue;
+      }
 
       // Line comments
       if (ch === "-" && this.peek(1) === "-") {
@@ -207,10 +215,68 @@ export class Lexer {
             case "t": value += "\t"; break;
             case "\\": value += "\\"; break;
             case '"': value += '"'; break;
+            case "{": value += "{"; break;
             default: value += escaped;
           }
           this.advance();
         }
+      } else if (this.source[this.pos] === "{") {
+        // Start of interpolation: emit text so far, then InterpolationStart
+        this.addToken(TokenKind.TextLiteral, value);
+        value = "";
+        this.addToken(TokenKind.InterpolationStart, "{");
+        this.advance(); // skip {
+        this.interpolationDepth++;
+        this.braceDepth = 0;
+        // Return to main tokenize loop — it will lex the expression
+        // until InterpolationEnd is emitted by the } handler
+        return;
+      } else {
+        value += this.source[this.pos];
+        this.advance();
+      }
+    }
+    if (this.pos < this.source.length) {
+      this.advance(); // skip closing "
+    }
+    this.addToken(TokenKind.TextLiteral, value);
+  }
+
+  /**
+   * Continue reading the rest of a text literal after an interpolation
+   * expression has been lexed. Called when } closes an interpolation.
+   */
+  private continueTextLiteral(): void {
+    this.addToken(TokenKind.InterpolationEnd, "}");
+    this.advance(); // skip }
+    this.interpolationDepth--;
+
+    // Now continue reading the string from where we left off
+    let value = "";
+    while (this.pos < this.source.length && this.source[this.pos] !== '"') {
+      if (this.source[this.pos] === "\\") {
+        this.advance();
+        if (this.pos < this.source.length) {
+          const escaped = this.source[this.pos];
+          switch (escaped) {
+            case "n": value += "\n"; break;
+            case "t": value += "\t"; break;
+            case "\\": value += "\\"; break;
+            case '"': value += '"'; break;
+            case "{": value += "{"; break;
+            default: value += escaped;
+          }
+          this.advance();
+        }
+      } else if (this.source[this.pos] === "{") {
+        // Another interpolation in the same string
+        this.addToken(TokenKind.TextLiteral, value);
+        value = "";
+        this.addToken(TokenKind.InterpolationStart, "{");
+        this.advance(); // skip {
+        this.interpolationDepth++;
+        this.braceDepth = 0;
+        return;
       } else {
         value += this.source[this.pos];
         this.advance();

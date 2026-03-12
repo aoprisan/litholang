@@ -923,15 +923,9 @@ export class Parser {
       };
     }
 
-    // Text literal
+    // Text literal (possibly with interpolation)
     if (token.kind === TokenKind.TextLiteral) {
-      this.advance();
-      return {
-        kind: "TextLiteral",
-        value: token.value,
-        segments: [{ text: token.value }],
-        position: { line: token.line, column: token.column },
-      };
+      return this.parseTextLiteral();
     }
 
     // Boolean literal
@@ -1145,6 +1139,63 @@ export class Parser {
     if (this.check(kind)) return this.advance();
     const token = this.current();
     throw this.error(`Expected ${expected}, got '${token.value}' (${token.kind})`);
+  }
+
+  /**
+   * Parse a text literal, handling interpolation segments like "Hello, {name}!".
+   *
+   * The lexer produces a sequence of tokens for interpolated strings:
+   *   TextLiteral("Hello, ") InterpolationStart expr InterpolationEnd TextLiteral("!")
+   */
+  private parseTextLiteral(): Expression {
+    const token = this.current();
+    const position = { line: token.line, column: token.column };
+    this.advance(); // consume initial TextLiteral
+
+    // Check if the next token is InterpolationStart — if not, it's a plain string
+    if (!this.check(TokenKind.InterpolationStart)) {
+      return {
+        kind: "TextLiteral",
+        value: token.value,
+        segments: [{ text: token.value }],
+        position,
+      };
+    }
+
+    // Build segments for an interpolated string
+    const segments: Array<{ text: string } | { expr: Expression }> = [];
+    if (token.value.length > 0) {
+      segments.push({ text: token.value });
+    }
+
+    while (this.check(TokenKind.InterpolationStart)) {
+      this.advance(); // consume InterpolationStart
+      const expr = this.parseExpression();
+      segments.push({ expr });
+      this.consume(TokenKind.InterpolationEnd, "'}' to close interpolation");
+
+      // After InterpolationEnd, the lexer always emits a TextLiteral
+      // for the remaining text (possibly empty string before next { or end of string)
+      if (this.check(TokenKind.TextLiteral)) {
+        const textToken = this.current();
+        this.advance();
+        if (textToken.value.length > 0) {
+          segments.push({ text: textToken.value });
+        }
+      }
+    }
+
+    // Reconstruct the full value for backward compatibility
+    const fullValue = segments
+      .map((s) => ("text" in s ? s.text : ""))
+      .join("");
+
+    return {
+      kind: "TextLiteral",
+      value: fullValue,
+      segments,
+      position,
+    };
   }
 
   private isAtEnd(): boolean {

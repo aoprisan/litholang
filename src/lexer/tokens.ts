@@ -73,6 +73,8 @@ export enum TokenKind {
 
   // Special
   Newline = "Newline",
+  InterpolationStart = "InterpolationStart", // marks start of {expr} in text
+  InterpolationEnd = "InterpolationEnd",     // marks end of {expr} in text
   EOF = "EOF",
 }
 

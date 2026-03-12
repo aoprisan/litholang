@@ -510,8 +510,21 @@ export class TypeScriptEmitter {
     switch (expr.kind) {
       case "NumberLiteral":
         return String(expr.value);
-      case "TextLiteral":
-        return JSON.stringify(expr.value);
+      case "TextLiteral": {
+        // If there are interpolation expressions, emit as template literal
+        const hasInterpolation = expr.segments.some((s) => "expr" in s);
+        if (!hasInterpolation) {
+          return JSON.stringify(expr.value);
+        }
+        const parts = expr.segments.map((s) => {
+          if ("text" in s) {
+            // Escape backticks and ${} in text segments for template literals
+            return s.text.replace(/\\/g, "\\\\").replace(/`/g, "\\`").replace(/\$\{/g, "\\${");
+          }
+          return `\${${this.emitExpression(s.expr)}}`;
+        });
+        return "`" + parts.join("") + "`";
+      }
       case "BooleanLiteral":
         return String(expr.value);
       case "IdentifierExpr":

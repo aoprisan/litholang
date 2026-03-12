@@ -331,6 +331,12 @@ export class TypeChecker {
         return { kind: "primitive", name: "Number" };
 
       case "TextLiteral":
+        // Validate interpolated expressions
+        for (const segment of expr.segments) {
+          if ("expr" in segment) {
+            this.inferExpression(segment.expr, scope);
+          }
+        }
         return { kind: "primitive", name: "Text" };
 
       case "BooleanLiteral":
