@@ -12,6 +12,25 @@ import { Token, TokenKind, KEYWORDS } from "./tokens.js";
  * - Keywords vs identifiers resolved via KEYWORDS lookup
  * - Newlines are significant tokens (statement separators)
  */
+const SINGLE_CHAR_TOKENS: Record<string, TokenKind> = {
+  "(": TokenKind.LeftParen,
+  ")": TokenKind.RightParen,
+  "[": TokenKind.LeftBracket,
+  "]": TokenKind.RightBracket,
+  ".": TokenKind.Dot,
+  ",": TokenKind.Comma,
+  ":": TokenKind.Colon,
+  "=": TokenKind.Equals,
+  "?": TokenKind.QuestionMark,
+  "+": TokenKind.Plus,
+  "-": TokenKind.Minus,
+  "*": TokenKind.Star,
+  "/": TokenKind.Slash,
+  "%": TokenKind.Percent,
+  "<": TokenKind.LessThan,
+  ">": TokenKind.GreaterThan,
+};
+
 export class Lexer {
   private source: string;
   private pos: number = 0;
@@ -47,11 +66,11 @@ export class Lexer {
       }
 
       if (ch === "\r") {
+        this.addToken(TokenKind.Newline, "\\n");
         this.advance();
         if (this.pos < this.source.length && this.source[this.pos] === "\n") {
           this.advance();
         }
-        this.addToken(TokenKind.Newline, "\\n");
         this.line++;
         this.column = 1;
         continue;
@@ -132,26 +151,7 @@ export class Lexer {
       }
 
       // Single-character tokens
-      const singleCharTokens: Record<string, TokenKind> = {
-        "(": TokenKind.LeftParen,
-        ")": TokenKind.RightParen,
-        "[": TokenKind.LeftBracket,
-        "]": TokenKind.RightBracket,
-        ".": TokenKind.Dot,
-        ",": TokenKind.Comma,
-        ":": TokenKind.Colon,
-        "=": TokenKind.Equals,
-        "?": TokenKind.QuestionMark,
-        "+": TokenKind.Plus,
-        "-": TokenKind.Minus,
-        "*": TokenKind.Star,
-        "/": TokenKind.Slash,
-        "%": TokenKind.Percent,
-        "<": TokenKind.LessThan,
-        ">": TokenKind.GreaterThan,
-      };
-
-      const tokenKind = singleCharTokens[ch];
+      const tokenKind = SINGLE_CHAR_TOKENS[ch];
       if (tokenKind) {
         this.addToken(tokenKind, ch);
         this.advance();
@@ -216,9 +216,12 @@ export class Lexer {
         this.advance();
       }
     }
-    if (this.pos < this.source.length) {
-      this.advance(); // skip closing "
+    if (this.pos >= this.source.length) {
+      throw new Error(
+        `Unterminated string literal at ${this.line}:${this.column}`
+      );
     }
+    this.advance(); // skip closing "
     this.addToken(TokenKind.TextLiteral, value);
   }
 

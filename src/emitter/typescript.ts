@@ -249,7 +249,7 @@ export class TypeScriptEmitter {
 
     if (usesPropagation) {
       lines.push("  } catch (__e: unknown) {");
-      lines.push("    if (__e && typeof __e === \"object\" && \"__clarityPropagate\" in __e) return (__e as any).value;");
+      lines.push("    if (__e && typeof __e === \"object\" && \"__clarityPropagate\" in __e) return (__e as { value: unknown }).value;");
       lines.push("    throw __e;");
       lines.push("  }");
     }
