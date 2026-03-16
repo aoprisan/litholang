@@ -14,6 +14,7 @@ import {
 import {
   checkTailRecursion,
   transformTailRecToLoop,
+  TAILREC_PREFIX,
 } from "../typechecker/tailrec.js";
 import {
   findTrampolineGroups,
@@ -44,6 +45,10 @@ export class TypeScriptEmitter {
   private errors: string[] = [];
   private needsResultHelper = false;
   private needsMaybeHelper = false;
+
+  private exportPrefix(exported: boolean): string {
+    return exported ? "export " : "";
+  }
 
   emit(program: Program): string {
     this.errors = [];
@@ -174,8 +179,7 @@ export class TypeScriptEmitter {
 
   emitStructDef(struct: StructDef, exported = false): string {
     const lines: string[] = [];
-    const exportPrefix = exported ? "export " : "";
-    lines.push(`${exportPrefix}interface ${struct.name} {`);
+    lines.push(`${this.exportPrefix(exported)}interface ${struct.name} {`);
     for (const field of struct.fields) {
       lines.push(`  ${field.name}: ${this.emitType(field.type)};`);
     }
@@ -192,8 +196,7 @@ export class TypeScriptEmitter {
 
   emitEnumDef(enumDef: EnumDef, exported = false): string {
     const lines: string[] = [];
-    const exportPrefix = exported ? "export " : "";
-    lines.push(`${exportPrefix}enum ${enumDef.name} {`);
+    lines.push(`${this.exportPrefix(exported)}enum ${enumDef.name} {`);
     for (const variant of enumDef.variants) {
       lines.push(`  ${variant},`);
     }
@@ -202,8 +205,7 @@ export class TypeScriptEmitter {
   }
 
   emitTypeAlias(alias: TypeAlias, exported = false): string {
-    const exportPrefix = exported ? "export " : "";
-    return `${exportPrefix}type ${alias.name} = ${this.emitType(alias.type)};`;
+    return `${this.exportPrefix(exported)}type ${alias.name} = ${this.emitType(alias.type)};`;
   }
 
   emitImportDecl(decl: ImportDecl): string {
@@ -222,12 +224,11 @@ export class TypeScriptEmitter {
     const returnType = func.returnType
       ? `: ${this.emitType(func.returnType)}`
       : "";
-    const exportPrefix = exported ? "export " : "";
     const asyncPrefix = func.isAsync ? "async " : "";
     const usesPropagation = this.bodyUsesPropagation(func.body);
 
     const lines: string[] = [];
-    lines.push(`${exportPrefix}${asyncPrefix}function ${func.name}(${params})${returnType} {`);
+    lines.push(`${this.exportPrefix(exported)}${asyncPrefix}function ${func.name}(${params})${returnType} {`);
 
     const baseIndent = usesPropagation ? 4 : 2;
 
@@ -418,7 +419,7 @@ export class TypeScriptEmitter {
         if (stmt.isReassignment) {
           return `${pad}${stmt.target} = ${this.emitExpression(stmt.value)};`;
         }
-        const binding = stmt.target.startsWith("__tailrec_") ? "let" : "const";
+        const binding = stmt.target.startsWith(TAILREC_PREFIX) ? "let" : "const";
         return `${pad}${binding} ${stmt.target} = ${this.emitExpression(stmt.value)};`;
       }
 
