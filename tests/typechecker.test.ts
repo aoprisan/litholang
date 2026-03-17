@@ -361,6 +361,105 @@ end`);
   });
 });
 
+describe("exhaustive match checking", () => {
+  it("reports missing variants in match on enum", () => {
+    const errors = check(`enum Color is
+  Red
+  Green
+  Blue
+end
+
+define describe_color(c: Color) -> Text as
+  match c on
+    case Red => return "red"
+    case Green => return "green"
+  end
+end`);
+    expect(errors.length).toBe(1);
+    expect(errors[0].message).toContain("Non-exhaustive match");
+    expect(errors[0].message).toContain("Blue");
+  });
+
+  it("accepts exhaustive match with all variants", () => {
+    const errors = check(`enum Color is
+  Red
+  Green
+  Blue
+end
+
+define describe_color(c: Color) -> Text as
+  match c on
+    case Red => return "red"
+    case Green => return "green"
+    case Blue => return "blue"
+  end
+end`);
+    expect(errors).toEqual([]);
+  });
+
+  it("accepts match with wildcard pattern", () => {
+    const errors = check(`enum Color is
+  Red
+  Green
+  Blue
+end
+
+define describe_color(c: Color) -> Text as
+  match c on
+    case Red => return "red"
+    case _ => return "other"
+  end
+end`);
+    expect(errors).toEqual([]);
+  });
+
+  it("accepts match with identifier catch-all", () => {
+    const errors = check(`enum Color is
+  Red
+  Green
+  Blue
+end
+
+define describe_color(c: Color) -> Text as
+  match c on
+    case Red => return "red"
+    case other => return "other"
+  end
+end`);
+    expect(errors).toEqual([]);
+  });
+});
+
+describe("built-in constructors", () => {
+  it("ok() infers Result type", () => {
+    const errors = check(`define test() -> Result<Number, Error> as
+  return ok(42)
+end`);
+    expect(errors).toEqual([]);
+  });
+
+  it("err() infers Result type", () => {
+    const errors = check(`define test() -> Result<Number, Text> as
+  return err("oops")
+end`);
+    expect(errors).toEqual([]);
+  });
+
+  it("none infers Maybe type", () => {
+    const errors = check(`define test() -> Maybe<Number> as
+  return none
+end`);
+    expect(errors).toEqual([]);
+  });
+
+  it("some() infers Maybe type", () => {
+    const errors = check(`define test() -> Maybe<Number> as
+  return some(42)
+end`);
+    expect(errors).toEqual([]);
+  });
+});
+
 describe("PropagateExpr emission", () => {
   it("emits __propagateResult helper and try-catch wrapper", () => {
     const output = compileToTS(`define fallible() -> Result<Number, Error> as

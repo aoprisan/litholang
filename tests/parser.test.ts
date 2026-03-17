@@ -295,6 +295,199 @@ end`);
     }
   });
 
+  it("parses match with pattern guard", () => {
+    const ast = parse(`define test(x: Number) -> Text as
+  match x on
+    case n where n >= 18 => "adult"
+    case _ => "minor"
+  end
+end`);
+
+    const func = ast.declarations[0];
+    if (func.kind === "FunctionDef") {
+      const match = func.body[0];
+      if (match.kind === "MatchStatement") {
+        expect(match.cases).toHaveLength(2);
+        expect(match.cases[0].guard).toBeDefined();
+        expect(match.cases[0].guard?.kind).toBe("BinaryExpr");
+        expect(match.cases[1].guard).toBeUndefined();
+      }
+    }
+  });
+
+  it("parses default parameter values", () => {
+    const ast = parse(`define greet(name: Text, greeting: Text = "Hello") -> Text as
+  return greeting
+end`);
+
+    const func = ast.declarations[0];
+    if (func.kind === "FunctionDef") {
+      expect(func.params).toHaveLength(2);
+      expect(func.params[0].defaultValue).toBeUndefined();
+      expect(func.params[1].defaultValue).toBeDefined();
+      expect(func.params[1].defaultValue?.kind).toBe("TextLiteral");
+    }
+  });
+
+  it("parses multi-line pipeline", () => {
+    const ast = parse(`define test(data: List<Number>) -> List<Number> as
+  result = data
+    |> filter(x)
+    |> sort(y)
+  return result
+end`);
+
+    const func = ast.declarations[0];
+    if (func.kind === "FunctionDef") {
+      expect(func.body[0].kind).toBe("Assignment");
+      if (func.body[0].kind === "Assignment") {
+        expect(func.body[0].value.kind).toBe("PipelineExpr");
+        if (func.body[0].value.kind === "PipelineExpr") {
+          expect(func.body[0].value.steps).toHaveLength(2);
+        }
+      }
+    }
+  });
+
+  it("parses tuple expression", () => {
+    const ast = parse(`define test(x: Number, y: Text) -> Void as
+  t = (x, y)
+  return t
+end`);
+
+    const func = ast.declarations[0];
+    if (func.kind === "FunctionDef") {
+      const assign = func.body[0];
+      if (assign.kind === "Assignment") {
+        expect(assign.value.kind).toBe("TupleExpr");
+        if (assign.value.kind === "TupleExpr") {
+          expect(assign.value.elements).toHaveLength(2);
+        }
+      }
+    }
+  });
+
+  it("parses tuple pattern in match", () => {
+    const ast = parse(`define test(x: Number, y: Text) -> Text as
+  match (x, y) on
+    case (1, "hello") => return "match"
+    case (_, _) => return "other"
+  end
+end`);
+
+    const func = ast.declarations[0];
+    if (func.kind === "FunctionDef") {
+      const match = func.body[0];
+      if (match.kind === "MatchStatement") {
+        expect(match.subject.kind).toBe("TupleExpr");
+        expect(match.cases).toHaveLength(2);
+        expect(match.cases[0].pattern.kind).toBe("TuplePattern");
+        if (match.cases[0].pattern.kind === "TuplePattern") {
+          expect(match.cases[0].pattern.elements).toHaveLength(2);
+        }
+      }
+    }
+  });
+
+  it("parses where keyword in pipeline args", () => {
+    const ast = parse(`define test(items: List<Number>) -> List<Number> as
+  result = items |> filter(where .active == true)
+  return result
+end`);
+
+    const func = ast.declarations[0];
+    if (func.kind === "FunctionDef") {
+      const assign = func.body[0];
+      if (assign.kind === "Assignment") {
+        expect(assign.value.kind).toBe("PipelineExpr");
+        if (assign.value.kind === "PipelineExpr") {
+          const step = assign.value.steps[0];
+          expect(step.args).toHaveLength(1);
+          expect(step.args[0].value.kind).toBe("LambdaExpr");
+        }
+      }
+    }
+  });
+
+  it("parses of keyword in pipeline args", () => {
+    const ast = parse(`define test(items: List<Number>) -> Number as
+  result = items |> sum(of .amount)
+  return result
+end`);
+
+    const func = ast.declarations[0];
+    if (func.kind === "FunctionDef") {
+      const assign = func.body[0];
+      if (assign.kind === "Assignment" && assign.value.kind === "PipelineExpr") {
+        const step = assign.value.steps[0];
+        expect(step.args[0].value.kind).toBe("LambdaExpr");
+      }
+    }
+  });
+
+  it("parses by keyword in pipeline args", () => {
+    const ast = parse(`define test(items: List<Number>) -> List<Number> as
+  result = items |> sort(by .name)
+  return result
+end`);
+
+    const func = ast.declarations[0];
+    if (func.kind === "FunctionDef") {
+      const assign = func.body[0];
+      if (assign.kind === "Assignment" && assign.value.kind === "PipelineExpr") {
+        const step = assign.value.steps[0];
+        expect(step.args[0].value.kind).toBe("LambdaExpr");
+      }
+    }
+  });
+
+  it("parses multi-line constructor call", () => {
+    const ast = parse(`struct Point has
+  x: Number
+  y: Number
+end
+
+define test() -> Point as
+  return Point(
+    x: 10,
+    y: 20
+  )
+end`);
+
+    const func = ast.declarations[1];
+    if (func.kind === "FunctionDef") {
+      const ret = func.body[0];
+      if (ret.kind === "ReturnStatement") {
+        expect(ret.value.kind).toBe("ConstructExpr");
+        if (ret.value.kind === "ConstructExpr") {
+          expect(ret.value.fields).toHaveLength(2);
+        }
+      }
+    }
+  });
+
+  it("parses multi-line function call", () => {
+    const ast = parse(`define test() -> Void as
+  result = some_func(
+    1,
+    2,
+    3
+  )
+  return result
+end`);
+
+    const func = ast.declarations[0];
+    if (func.kind === "FunctionDef") {
+      const assign = func.body[0];
+      if (assign.kind === "Assignment") {
+        expect(assign.value.kind).toBe("CallExpr");
+        if (assign.value.kind === "CallExpr") {
+          expect(assign.value.args).toHaveLength(3);
+        }
+      }
+    }
+  });
+
   it("parses multiple declarations", () => {
     const ast = parse(`struct Point has
   x: Number

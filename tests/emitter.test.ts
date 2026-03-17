@@ -236,4 +236,177 @@ end`);
 
     expect(output).toContain("const n = x;");
   });
+
+  it("emits ok() as Result object literal", () => {
+    const output = compileToTS(`define test() -> Result<Number, Error> as
+  return ok(42)
+end`);
+
+    expect(output).toContain("{ ok: true, value: 42 }");
+  });
+
+  it("emits err() as Result object literal", () => {
+    const output = compileToTS(`define test() -> Result<Number, Text> as
+  return err("oops")
+end`);
+
+    expect(output).toContain('{ ok: false, error: "oops" }');
+  });
+
+  it("emits some() as the inner value", () => {
+    const output = compileToTS(`define test() -> Maybe<Number> as
+  return some(42)
+end`);
+
+    expect(output).toContain("return 42;");
+  });
+
+  it("emits none as null", () => {
+    const output = compileToTS(`define test() -> Maybe<Number> as
+  return none
+end`);
+
+    expect(output).toContain("return null;");
+  });
+
+  it("emits pattern guard as additional condition", () => {
+    const output = compileToTS(`define classify(age: Number) -> Text as
+  match age on
+    case n where n >= 18 => return "adult"
+    case _ => return "minor"
+  end
+end`);
+
+    expect(output).toContain("return (n >= 18)");
+    expect(output).toContain("const n = age;");
+  });
+
+  it("emits default parameter values", () => {
+    const output = compileToTS(`define greet(name: Text, greeting: Text = "Hello") -> Text as
+  return greeting
+end`);
+
+    expect(output).toContain('greeting: string = "Hello"');
+  });
+
+  it("emits tuple expression as array", () => {
+    const output = compileToTS(`define test(x: Number, y: Text) -> Void as
+  t = (x, y)
+  return t
+end`);
+
+    expect(output).toContain("const t = [x, y];");
+  });
+
+  it("emits tuple match with array indexing", () => {
+    const output = compileToTS(`define test(x: Number, y: Text) -> Text as
+  match (x, y) on
+    case (1, "hi") => return "match"
+    case (_, _) => return "other"
+  end
+end`);
+
+    expect(output).toContain("[x, y][0] === 1");
+    expect(output).toContain('[x, y][1] === "hi"');
+  });
+
+  it("emits where keyword as lambda", () => {
+    const output = compileToTS(`define test(items: List<Number>) -> List<Number> as
+  result = items |> filter(where .active == true)
+  return result
+end`);
+
+    expect(output).toContain("filter(items, (__it) => (__it.active == true))");
+  });
+
+  it("emits of keyword as lambda", () => {
+    const output = compileToTS(`define test(items: List<Number>) -> Number as
+  result = items |> sum(of .amount)
+  return result
+end`);
+
+    expect(output).toContain("sum(items, (__it) => __it.amount)");
+  });
+
+  it("emits multi-line pipeline", () => {
+    const output = compileToTS(`define test(data: List<Number>) -> List<Number> as
+  result = data
+    |> filter(x)
+    |> sort(y)
+  return result
+end`);
+
+    expect(output).toContain("sort(filter(data, x), y)");
+  });
+
+  it("emits multi-line constructor call", () => {
+    const output = compileToTS(`struct Point has
+  x: Number
+  y: Number
+end
+
+define test() -> Point as
+  return Point(
+    x: 10,
+    y: 20
+  )
+end`);
+
+    expect(output).toContain("{ x: 10, y: 20 }");
+  });
+
+  it("emits named arguments without comment wrappers", () => {
+    const output = compileToTS(`define test() -> Void as
+  result = some_func(name: "Alice", age: 30)
+  return result
+end`);
+
+    expect(output).not.toContain("/* name:");
+    expect(output).not.toContain("/* age:");
+    expect(output).toContain('some_func("Alice", 30)');
+  });
+
+  it("prepends prelude when prelude functions are used", () => {
+    const output = compileToTS(`define test() -> Void as
+  print("hello")
+  n = range(10)
+  return undefined
+end`);
+
+    expect(output).toContain("// --- Litholang Prelude ---");
+    expect(output).toContain("function print(");
+    expect(output).toContain("function range(");
+  });
+
+  it("prepends collections when collection functions are used", () => {
+    const output = compileToTS(`define test(items: List<Number>) -> List<Number> as
+  result = filter(items, each x => x > 0)
+  return result
+end`);
+
+    expect(output).toContain("// --- Litholang Collections ---");
+    expect(output).toContain("function filter<T>(");
+  });
+
+  it("does not prepend runtime when no runtime functions are used", () => {
+    const output = compileToTS(`define add(a: Number, b: Number) -> Number as
+  return a + b
+end`);
+
+    expect(output).not.toContain("// --- Litholang Prelude ---");
+    expect(output).not.toContain("// --- Litholang Collections ---");
+  });
+
+  it("does not prepend runtime when user defines same-named function", () => {
+    const output = compileToTS(`define print(msg: Text) -> Void as
+  return undefined
+end
+
+define test() -> Void as
+  print("hello")
+  return undefined
+end`);
+
+    expect(output).not.toContain("// --- Litholang Prelude ---");
+  });
 });

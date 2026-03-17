@@ -273,17 +273,23 @@ export class TypeChecker {
       }
 
       case "MatchStatement": {
-        this.inferExpression(stmt.subject, scope);
+        const subjectType = this.inferExpression(stmt.subject, scope);
         for (const matchCase of stmt.cases) {
           const caseScope = createScope(scope);
           // Bind pattern identifiers
           this.bindPattern(matchCase.pattern, caseScope);
+          // Type check guard expression
+          if (matchCase.guard) {
+            this.inferExpression(matchCase.guard, caseScope);
+          }
           if (Array.isArray(matchCase.body)) {
             this.checkBody(matchCase.body, caseScope, declaredReturn, functionName);
           } else {
             this.inferExpression(matchCase.body, caseScope);
           }
         }
+        // Exhaustiveness checking for enums
+        this.checkMatchExhaustiveness(subjectType, stmt);
         break;
       }
 
@@ -335,6 +341,10 @@ export class TypeChecker {
         return { kind: "primitive", name: "Boolean" };
 
       case "IdentifierExpr": {
+        // Built-in: none → Maybe<T> (null)
+        if (expr.name === "none") {
+          return { kind: "maybe", inner: { kind: "unknown" } };
+        }
         const varType = lookupVariable(scope, expr.name);
         if (varType) return varType;
 
@@ -370,6 +380,21 @@ export class TypeChecker {
         this.inferExpression(expr.callee, scope);
         for (const arg of expr.args) {
           this.inferExpression(arg.value, scope);
+        }
+        // Built-in Result/Maybe constructors
+        if (expr.callee.kind === "IdentifierExpr") {
+          if (expr.callee.name === "ok" && expr.args.length === 1) {
+            const innerType = this.inferExpression(expr.args[0].value, scope);
+            return { kind: "result", ok: innerType, error: { kind: "unknown" } };
+          }
+          if (expr.callee.name === "err" && expr.args.length === 1) {
+            const errorType = this.inferExpression(expr.args[0].value, scope);
+            return { kind: "result", ok: { kind: "unknown" }, error: errorType };
+          }
+          if (expr.callee.name === "some" && expr.args.length === 1) {
+            const innerType = this.inferExpression(expr.args[0].value, scope);
+            return { kind: "maybe", inner: innerType };
+          }
         }
         // Infer return type from known functions
         if (expr.callee.kind === "IdentifierExpr") {
@@ -555,6 +580,13 @@ export class TypeChecker {
         }
         for (const e of expr.exprs) {
           this.inferExpression(e, scope);
+        }
+        return { kind: "unknown" };
+      }
+
+      case "TupleExpr": {
+        for (const el of expr.elements) {
+          this.inferExpression(el, scope);
         }
         return { kind: "unknown" };
       }
@@ -746,6 +778,49 @@ export class TypeChecker {
       case "enum": return type.name;
       case "named": return type.name;
       case "unknown": return "<unknown>";
+    }
+  }
+
+  private checkMatchExhaustiveness(
+    subjectType: LithoType,
+    stmt: import("../parser/ast.js").MatchStatement,
+  ): void {
+    if (subjectType.kind !== "enum") return;
+
+    const allVariants = new Set(subjectType.variants);
+    // Check if any case has a wildcard or unguarded identifier pattern that isn't a variant name
+    const hasCatchAll = stmt.cases.some(
+      (c) =>
+        !c.guard &&
+        (c.pattern.kind === "WildcardPattern" ||
+          (c.pattern.kind === "IdentifierPattern" &&
+            !allVariants.has(c.pattern.name))),
+    );
+    if (hasCatchAll) return;
+
+    // Collect covered variants from unguarded patterns
+    const coveredVariants = new Set<string>();
+    for (const matchCase of stmt.cases) {
+      if (matchCase.guard) continue; // guarded cases don't guarantee coverage
+      if (matchCase.pattern.kind === "ConstructorPattern") {
+        coveredVariants.add(matchCase.pattern.name);
+      } else if (matchCase.pattern.kind === "IdentifierPattern" && allVariants.has(matchCase.pattern.name)) {
+        // Bare identifier that matches a variant name
+        coveredVariants.add(matchCase.pattern.name);
+      } else if (matchCase.pattern.kind === "LiteralPattern" && typeof matchCase.pattern.value === "string") {
+        coveredVariants.add(matchCase.pattern.value);
+      }
+    }
+
+    const missingVariants = subjectType.variants.filter(
+      (v) => !coveredVariants.has(v),
+    );
+    if (missingVariants.length > 0) {
+      this.addError(
+        `Non-exhaustive match on enum '${subjectType.name}': ` +
+          `missing variant(s) ${missingVariants.map((v) => `'${v}'`).join(", ")}`,
+        stmt.position,
+      );
     }
   }
 

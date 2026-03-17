@@ -146,4 +146,16 @@ c`;
     expect(ids[1].line).toBe(2);
     expect(ids[2].line).toBe(3);
   });
+
+  it("tokenizes of and by as keywords", () => {
+    const source = `data |> sort(by .name) |> sum(of .amount)`;
+    const lexer = new Lexer(source);
+    const tokens = lexer.tokenize();
+
+    const byTokens = tokens.filter((t) => t.kind === TokenKind.By);
+    expect(byTokens).toHaveLength(1);
+
+    const ofTokens = tokens.filter((t) => t.kind === TokenKind.Of);
+    expect(ofTokens).toHaveLength(1);
+  });
 });

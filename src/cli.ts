@@ -15,6 +15,8 @@ import { Lexer } from "./lexer/lexer.js";
 import { Parser } from "./parser/parser.js";
 import { TypeChecker } from "./typechecker/typechecker.js";
 import { TypeScriptEmitter } from "./emitter/typescript.js";
+import { Formatter } from "./formatter/formatter.js";
+import { formatDiagnostics } from "./diagnostics.js";
 
 const args = process.argv.slice(2);
 const command = args[0];
@@ -47,10 +49,7 @@ function compile(sourcePath: string): string {
   const checker = new TypeChecker();
   const typeErrors = checker.check(ast);
   if (typeErrors.length > 0) {
-    const messages = typeErrors.map(
-      (e) => `  ${e.position.line}:${e.position.column}: ${e.message}`
-    );
-    throw new Error(`Type errors:\n${messages.join("\n")}`);
+    throw new Error(formatDiagnostics(source, sourcePath, typeErrors));
   }
 
   const emitter = new TypeScriptEmitter();
@@ -89,7 +88,30 @@ switch (command) {
   }
 
   case "fmt": {
-    console.log("Formatter not yet implemented.");
+    try {
+      const source = readFileSync(file, "utf-8");
+      const lexer = new Lexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new Parser(tokens);
+      const ast = parser.parse();
+      const formatter = new Formatter();
+      const formatted = formatter.format(ast);
+
+      const writeBack = args.includes("--check") ? false : true;
+      if (writeBack) {
+        writeFileSync(file, formatted);
+        console.log(`Formatted ${file}`);
+      } else {
+        if (source !== formatted) {
+          console.log(`${file}: needs formatting`);
+          process.exit(1);
+        }
+        console.log(`${file}: OK`);
+      }
+    } catch (err) {
+      console.error(`Format error: ${(err as Error).message}`);
+      process.exit(1);
+    }
     break;
   }
 

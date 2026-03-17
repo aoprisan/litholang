@@ -21,6 +21,8 @@ import {
   validateTrampolineGroup,
   transformTrampolineGroup,
 } from "../typechecker/trampoline.js";
+import { PRELUDE_FUNCTIONS, PRELUDE_CODE } from "../runtime/prelude.js";
+import { COLLECTION_FUNCTIONS, COLLECTIONS_CODE } from "../runtime/collections.js";
 
 /**
  * Emits TypeScript code from a LithoLang AST.
@@ -156,8 +158,120 @@ export class TypeScriptEmitter {
       );
     }
 
-    const allChunks = [...helpers, ...chunks];
+    // Prepend runtime modules if their functions are used
+    const runtime: string[] = [];
+    const refs = this.collectIdentifiers(program);
+    const userDefined = new Set(
+      program.declarations.map(d => (d as { name?: string }).name).filter(Boolean)
+    );
+    const needsPrelude = [...PRELUDE_FUNCTIONS].some(f => refs.has(f) && !userDefined.has(f));
+    const needsCollections = [...COLLECTION_FUNCTIONS].some(f => refs.has(f) && !userDefined.has(f));
+    if (needsPrelude) runtime.push(PRELUDE_CODE);
+    if (needsCollections) runtime.push(COLLECTIONS_CODE);
+
+    const allChunks = [...runtime, ...helpers, ...chunks];
     return allChunks.join("\n").trimEnd() + "\n";
+  }
+
+  private collectIdentifiers(program: Program): Set<string> {
+    const ids = new Set<string>();
+    for (const decl of program.declarations) {
+      if (decl.kind === "FunctionDef") {
+        this.collectIdsFromBody(decl.body, ids);
+        for (const param of decl.params) {
+          if (param.defaultValue) this.collectIdsFromExpr(param.defaultValue, ids);
+        }
+      }
+      if (decl.kind === "StructDef") {
+        for (const method of decl.methods) {
+          this.collectIdsFromBody(method.body, ids);
+        }
+      }
+    }
+    return ids;
+  }
+
+  private collectIdsFromBody(body: Statement[], ids: Set<string>): void {
+    for (const stmt of body) {
+      switch (stmt.kind) {
+        case "ReturnStatement":
+          this.collectIdsFromExpr(stmt.value, ids); break;
+        case "Assignment":
+          this.collectIdsFromExpr(stmt.value, ids); break;
+        case "ExpressionStatement":
+          this.collectIdsFromExpr(stmt.expr, ids); break;
+        case "IfStatement":
+          this.collectIdsFromExpr(stmt.condition, ids);
+          this.collectIdsFromBody(stmt.thenBlock, ids);
+          for (const c of stmt.elseIfClauses) {
+            this.collectIdsFromExpr(c.condition, ids);
+            this.collectIdsFromBody(c.block, ids);
+          }
+          if (stmt.elseBlock) this.collectIdsFromBody(stmt.elseBlock, ids);
+          break;
+        case "ForStatement":
+          this.collectIdsFromExpr(stmt.iterable, ids);
+          this.collectIdsFromBody(stmt.body, ids);
+          break;
+        case "MatchStatement":
+          this.collectIdsFromExpr(stmt.subject, ids);
+          for (const c of stmt.cases) {
+            if (c.guard) this.collectIdsFromExpr(c.guard, ids);
+            if (Array.isArray(c.body)) this.collectIdsFromBody(c.body, ids);
+            else this.collectIdsFromExpr(c.body, ids);
+          }
+          break;
+        case "CheckStatement":
+          this.collectIdsFromExpr(stmt.condition, ids);
+          this.collectIdsFromExpr(stmt.fallback, ids);
+          break;
+      }
+    }
+  }
+
+  private collectIdsFromExpr(expr: Expression, ids: Set<string>): void {
+    switch (expr.kind) {
+      case "IdentifierExpr": ids.add(expr.name); break;
+      case "CallExpr":
+        this.collectIdsFromExpr(expr.callee, ids);
+        for (const a of expr.args) this.collectIdsFromExpr(a.value, ids);
+        break;
+      case "BinaryExpr":
+        this.collectIdsFromExpr(expr.left, ids);
+        this.collectIdsFromExpr(expr.right, ids);
+        break;
+      case "UnaryExpr":
+        this.collectIdsFromExpr(expr.operand, ids); break;
+      case "PipelineExpr":
+        this.collectIdsFromExpr(expr.source, ids);
+        for (const s of expr.steps) {
+          this.collectIdsFromExpr(s.callee, ids);
+          for (const a of s.args) this.collectIdsFromExpr(a.value, ids);
+        }
+        break;
+      case "DotAccess":
+        this.collectIdsFromExpr(expr.object, ids); break;
+      case "LambdaExpr":
+        this.collectIdsFromExpr(expr.body, ids); break;
+      case "PropagateExpr":
+      case "AwaitExpr":
+        this.collectIdsFromExpr(expr.expr, ids); break;
+      case "WithExpr":
+        this.collectIdsFromExpr(expr.base, ids);
+        for (const u of expr.updates) this.collectIdsFromExpr(u.value, ids);
+        break;
+      case "ListLiteral":
+      case "TupleExpr":
+        for (const e of expr.elements) this.collectIdsFromExpr(e, ids);
+        break;
+      case "ConstructExpr":
+        for (const f of expr.fields) this.collectIdsFromExpr(f.value, ids);
+        break;
+      case "AllExpr":
+        for (const e of expr.exprs) this.collectIdsFromExpr(e, ids);
+        break;
+      default: break;
+    }
   }
 
   emitFunctionDef(func: FunctionDef, exported = false): string {
@@ -219,7 +333,10 @@ export class TypeScriptEmitter {
 
   private emitFunction(func: FunctionDef, isTailRecOptimized: boolean, exported = false): string {
     const params = func.params
-      .map((p) => `${p.name}: ${this.emitType(p.type)}`)
+      .map((p) => {
+        const def = p.defaultValue ? ` = ${this.emitExpression(p.defaultValue)}` : "";
+        return `${p.name}: ${this.emitType(p.type)}${def}`;
+      })
       .join(", ");
     const returnType = func.returnType
       ? `: ${this.emitType(func.returnType)}`
@@ -315,6 +432,7 @@ export class TypeScriptEmitter {
       case "AwaitExpr":
         return this.exprUsesPropagation(expr.expr);
       case "ListLiteral":
+      case "TupleExpr":
         return expr.elements.some(e => this.exprUsesPropagation(e));
       default:
         return false;
@@ -470,14 +588,33 @@ export class TypeScriptEmitter {
           const prefix = first ? "if" : "} else if";
           first = false;
           const bindings: { name: string; expr: string }[] = [];
-          const cond = this.emitPatternCondition(
+          let cond = this.emitPatternCondition(
             matchCase.pattern,
             subjectExpr,
             bindings
           );
-          lines.push(`${pad}${prefix} (${cond}) {`);
-          for (const binding of bindings) {
-            lines.push(`${pad}  const ${binding.name} = ${binding.expr};`);
+          // When a guard references bound variables, we need to inline the
+          // bindings into the condition so they're available for the guard.
+          if (matchCase.guard && bindings.length > 0) {
+            // Use an IIFE to bind variables before evaluating the guard
+            const bindingAssignments = bindings
+              .map((b) => `const ${b.name} = ${b.expr}`)
+              .join(", ");
+            const guardExpr = this.emitExpression(matchCase.guard);
+            cond = `${cond} && (() => { ${bindingAssignments}; return ${guardExpr}; })()`;
+            lines.push(`${pad}${prefix} (${cond}) {`);
+            // Re-emit bindings inside the block for use in the body
+            for (const binding of bindings) {
+              lines.push(`${pad}  const ${binding.name} = ${binding.expr};`);
+            }
+          } else {
+            if (matchCase.guard) {
+              cond = `${cond} && (${this.emitExpression(matchCase.guard)})`;
+            }
+            lines.push(`${pad}${prefix} (${cond}) {`);
+            for (const binding of bindings) {
+              lines.push(`${pad}  const ${binding.name} = ${binding.expr};`);
+            }
           }
           if (Array.isArray(matchCase.body)) {
             for (const s of matchCase.body) {
@@ -540,6 +677,7 @@ export class TypeScriptEmitter {
       case "BooleanLiteral":
         return String(expr.value);
       case "IdentifierExpr":
+        if (expr.name === "none") return "null";
         return expr.name;
       case "SelfExpr":
         return "this";
@@ -549,8 +687,20 @@ export class TypeScriptEmitter {
         return `.${expr.field}`;
       case "CallExpr": {
         const callee = this.emitExpression(expr.callee);
+        // Built-in Result/Maybe constructors
+        if (expr.callee.kind === "IdentifierExpr") {
+          if (expr.callee.name === "ok" && expr.args.length === 1) {
+            return `{ ok: true, value: ${this.emitExpression(expr.args[0].value)} }`;
+          }
+          if (expr.callee.name === "err" && expr.args.length === 1) {
+            return `{ ok: false, error: ${this.emitExpression(expr.args[0].value)} }`;
+          }
+          if (expr.callee.name === "some" && expr.args.length === 1) {
+            return this.emitExpression(expr.args[0].value);
+          }
+        }
         const args = expr.args.map((a) => {
-          if (a.name) return `/* ${a.name}: */ ${this.emitExpression(a.value)}`;
+          if (a.name) return this.emitExpression(a.value);
           return this.emitExpression(a.value);
         });
         return `${callee}(${args.join(", ")})`;
@@ -587,6 +737,7 @@ export class TypeScriptEmitter {
         return `{ ...${this.emitExpression(expr.base)}, ${updates} }`;
       }
       case "ListLiteral":
+      case "TupleExpr":
         return `[${expr.elements.map((e) => this.emitExpression(e)).join(", ")}]`;
       case "ConstructExpr": {
         const fields = expr.fields

@@ -9,6 +9,11 @@ enum OrderStatus is
   Cancelled
 end
 
+struct Item has
+  name: Text
+  price: Number
+end
+
 struct Order has
   id: Text
   status: OrderStatus
@@ -16,6 +21,7 @@ struct Order has
   total: Number
 end
 
+-- Transition uses tuple matching on (status, action)
 define transition(order: Order, action: Text) -> Result<Order, Text> as
   match (order.status, action) on
     case (Pending, "pay") =>
@@ -31,7 +37,24 @@ define transition(order: Order, action: Text) -> Result<Order, Text> as
     case (Pending, "cancel") =>
       return ok(order with status: Cancelled)
 
-    case (current, act) =>
-      return err("Cannot {act} from {current}")
+    case (_, _) =>
+      return err("Cannot perform action from current status")
   end
+end
+
+-- Pattern guards for classifying order value
+define classify_order(order: Order) -> Text as
+  match order.total on
+    case t where t >= 1000 => return "premium"
+    case t where t >= 100  => return "standard"
+    case t where t > 0     => return "small"
+    case _                 => return "empty"
+  end
+end
+
+-- Default parameters for flexible order creation
+define create_order(id: Text, items: List<Item>, discount: Number = 0) -> Order as
+  raw_total = items |> sum(of .price)
+  final_total = raw_total - discount
+  return Order(id: id, status: Pending, items: items, total: final_total)
 end

@@ -32,10 +32,10 @@ define binary_search(items: List<Number>, target: Number, low: Number, high: Num
   mid = (low + high) / 2
   value = items[mid]
 
-  match true on
-    case value == target => return some(mid)
-    case value < target  => return binary_search(items, target, mid + 1, high)
-    case _               => return binary_search(items, target, low, mid - 1)
+  match value on
+    case v where v == target => return some(mid)
+    case v where v < target  => return binary_search(items, target, mid + 1, high)
+    case _                   => return binary_search(items, target, low, mid - 1)
   end
 end
 

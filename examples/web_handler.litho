@@ -15,28 +15,42 @@ struct UserResponse has
   created_at: Timestamp
 end
 
-define handle_register(request: HttpRequest) -> Result<HttpResponse, Error> as
-  body = request.parse_json(as: NewUser)?
+struct HttpRequest has
+  body: Text
+end
 
-  check body.email matches email_pattern
-    or return bad_request("Invalid email")
+struct HttpResponse has
+  status: Number
+  body: Text
+end
 
-  check body.password.length >= 8
-    or return bad_request("Password too short")
+-- Uses ok()/err() constructors and check guards
+define handle_register(request: HttpRequest) -> Result<HttpResponse, Text> as
+  body = request.parse_json()?
+
+  check body.email != "" or return err("Invalid email")
+
+  check body.password.length >= 8 or return err("Password too short")
 
   hashed = Hash.password(body.password)
 
-  user = db.users.insert(
-    email: body.email,
-    password_hash: hashed,
-    name: body.name,
-    created_at: now()
-  )?
+  user = db.users.insert(email: body.email, password_hash: hashed, name: body.name, created_at: now())?
 
-  return ok(json: UserResponse(
-    id: user.id,
-    email: user.email,
-    name: user.name,
-    created_at: user.created_at
-  ))
+  response = HttpResponse(status: 201, body: user.id)
+
+  return ok(response)
+end
+
+-- Uses some()/none for optional lookups
+define find_user_by_email(email: Text) -> Maybe<UserResponse> as
+  user = db.users.find_one(email: email)
+  check user != null or return none
+  result = UserResponse(id: user.id, email: user.email, name: user.name, created_at: user.created_at)
+  return some(result)
+end
+
+-- Default parameter for page size
+define list_users(page: Number = 1, page_size: Number = 20) -> List<UserResponse> as
+  offset = (page - 1) * page_size
+  return db.users.find_all() |> skip(offset) |> take(page_size) |> collect
 end
