@@ -266,6 +266,12 @@ function checkExprForTailCalls(
       }
       break;
 
+    case "TupleExpr":
+      for (const el of expr.elements) {
+        checkExprForTailCalls(el, funcName, false, recursiveCalls, tailCalls);
+      }
+      break;
+
     case "ConstructExpr":
       for (const field of expr.fields) {
         checkExprForTailCalls(field.value, funcName, false, recursiveCalls, tailCalls);

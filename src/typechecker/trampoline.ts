@@ -257,6 +257,11 @@ function findNonTailInExpr(
         findNonTailInExpr(el, groupNames, false, nonTailCalls);
       }
       break;
+    case "TupleExpr":
+      for (const el of expr.elements) {
+        findNonTailInExpr(el, groupNames, false, nonTailCalls);
+      }
+      break;
     case "ConstructExpr":
       for (const field of expr.fields) {
         findNonTailInExpr(field.value, groupNames, false, nonTailCalls);

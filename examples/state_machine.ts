@@ -19,20 +19,20 @@ export interface Order {
 }
 
 export function transition(order: Order, action: string): { ok: true; value: Order } | { ok: false; error: string } {
-  if (true && (() => { const Pending = order.status; return (action == "pay"); })()) {
-    const Pending = order.status;
+  if (true && [order.status, action][1] === "pay") {
+    const Pending = [order.status, action][0];
     return { ok: true, value: { ...order, status: Paid } };
-  } else if (true && (() => { const Paid = order.status; return (action == "ship"); })()) {
-    const Paid = order.status;
+  } else if (true && [order.status, action][1] === "ship") {
+    const Paid = [order.status, action][0];
     const tracking = generate_tracking();
-    return { ok: true, value: { ...order, status: Shipped } };
-  } else if (true && (() => { const Shipped = order.status; return (action == "deliver"); })()) {
-    const Shipped = order.status;
+    return { ok: true, value: { ...order, status: Shipped, tracking: tracking } };
+  } else if (true && [order.status, action][1] === "deliver") {
+    const Shipped = [order.status, action][0];
     return { ok: true, value: { ...order, status: Delivered } };
-  } else if (true && (() => { const Pending = order.status; return (action == "cancel"); })()) {
-    const Pending = order.status;
+  } else if (true && [order.status, action][1] === "cancel") {
+    const Pending = [order.status, action][0];
     return { ok: true, value: { ...order, status: Cancelled } };
-  } else if (true) {
+  } else if (true && true) {
     return { ok: false, error: "Cannot perform action from current status" };
   }
 }
@@ -53,7 +53,7 @@ export function classify_order(order: Order): string {
 }
 
 export function create_order(id: string, items: Item[], discount: number = 0): Order {
-  const raw_total = sum(items, of.price);
+  const raw_total = sum(items, (__it) => __it.price);
   const final_total = (raw_total - discount);
   return { id: id, status: Pending, items: items, total: final_total };
 }

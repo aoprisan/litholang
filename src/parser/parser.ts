@@ -657,16 +657,20 @@ export class Parser {
   private parseExpression(): Expression {
     let expr = this.parseOr();
 
-    // Pipeline: expr |> step |> step
-    while (this.check(TokenKind.Pipe)) {
+    // Pipeline: expr |> step |> step (supports multi-line)
+    while (this.checkSkippingNewlines(TokenKind.Pipe)) {
+      this.skipNewlines();
       this.advance();
+      this.skipNewlines();
       const steps: { callee: Expression; args: Argument[] }[] = [];
 
       const stepExpr = this.parsePipelineStep();
       steps.push(stepExpr);
 
-      while (this.check(TokenKind.Pipe)) {
+      while (this.checkSkippingNewlines(TokenKind.Pipe)) {
+        this.skipNewlines();
         this.advance();
+        this.skipNewlines();
         steps.push(this.parsePipelineStep());
       }
 
@@ -881,10 +885,12 @@ export class Parser {
         };
       } else if (this.check(TokenKind.LeftParen)) {
         this.advance();
+        this.skipNewlines();
         const args: Argument[] = [];
         if (!this.check(TokenKind.RightParen)) {
           args.push(...this.parseArgumentList());
         }
+        this.skipNewlines();
         this.consume(TokenKind.RightParen, "')'");
         expr = {
           kind: "CallExpr",
@@ -988,12 +994,26 @@ export class Parser {
       };
     }
 
-    // Parenthesized expression
+    // Parenthesized expression or tuple: (a) vs (a, b)
     if (token.kind === TokenKind.LeftParen) {
       this.advance();
-      const expr = this.parseExpression();
+      const first = this.parseExpression();
+      if (this.check(TokenKind.Comma)) {
+        // Tuple expression: (a, b, ...)
+        const elements: Expression[] = [first];
+        while (this.check(TokenKind.Comma)) {
+          this.advance();
+          elements.push(this.parseExpression());
+        }
+        this.consume(TokenKind.RightParen, "')'");
+        return {
+          kind: "TupleExpr",
+          elements,
+          position: { line: token.line, column: token.column },
+        };
+      }
       this.consume(TokenKind.RightParen, "')'");
-      return expr;
+      return first;
     }
 
     // Lambda: each x => expr
@@ -1028,6 +1048,7 @@ export class Parser {
         // Could be a constructor or regular call — check for named args
         const saved = this.pos;
         this.advance(); // skip (
+        this.skipNewlines();
         if (
           this.check(TokenKind.Identifier) &&
           this.peekToken(1)?.kind === TokenKind.Colon
@@ -1035,6 +1056,7 @@ export class Parser {
           // Constructor with named fields
           this.pos = saved;
           this.advance(); // skip (
+          this.skipNewlines();
           const fields: { name: string; value: Expression }[] = [];
           if (!this.check(TokenKind.RightParen)) {
             do {
@@ -1044,8 +1066,10 @@ export class Parser {
               fields.push({ name: fieldName, value });
               if (!this.check(TokenKind.Comma)) break;
               this.advance();
+              this.skipNewlines();
             } while (true);
           }
+          this.skipNewlines();
           this.consume(TokenKind.RightParen, "')'");
           return {
             kind: "ConstructExpr",
@@ -1099,10 +1123,21 @@ export class Parser {
 
   private parseArgumentList(): Argument[] {
     const args: Argument[] = [];
+    this.skipNewlines();
 
     do {
-      // Check for named argument: name: value
+      // Pipeline lambda keywords: where/of/by .field == val → lambda
       if (
+        this.check(TokenKind.Where) ||
+        this.check(TokenKind.Of) ||
+        this.check(TokenKind.By)
+      ) {
+        this.advance();
+        const bodyExpr = this.parseExpression();
+        const lambda = this.wrapInLambda(bodyExpr);
+        args.push({ value: lambda });
+      // Check for named argument: name: value
+      } else if (
         this.check(TokenKind.Identifier) &&
         this.peekToken(1)?.kind === TokenKind.Colon
       ) {
@@ -1116,9 +1151,64 @@ export class Parser {
       }
       if (!this.check(TokenKind.Comma)) break;
       this.advance();
+      this.skipNewlines();
     } while (true);
 
+    this.skipNewlines();
     return args;
+  }
+
+  private wrapInLambda(expr: Expression): Expression {
+    const rewritten = this.rewriteShortDots(expr);
+    return {
+      kind: "LambdaExpr",
+      params: [{
+        name: "__it",
+        type: { kind: "SimpleType", name: "Any", position: this.position() },
+      }],
+      body: rewritten,
+      position: (expr as { position: Position }).position,
+    };
+  }
+
+  private rewriteShortDots(expr: Expression): Expression {
+    switch (expr.kind) {
+      case "ShortDotAccess":
+        return {
+          kind: "DotAccess",
+          object: {
+            kind: "IdentifierExpr",
+            name: "__it",
+            position: expr.position,
+          },
+          field: expr.field,
+          position: expr.position,
+        };
+      case "BinaryExpr":
+        return {
+          ...expr,
+          left: this.rewriteShortDots(expr.left),
+          right: this.rewriteShortDots(expr.right),
+        };
+      case "UnaryExpr":
+        return {
+          ...expr,
+          operand: this.rewriteShortDots(expr.operand),
+        };
+      case "DotAccess":
+        return {
+          ...expr,
+          object: this.rewriteShortDots(expr.object),
+        };
+      case "CallExpr":
+        return {
+          ...expr,
+          callee: this.rewriteShortDots(expr.callee),
+          args: expr.args.map(a => ({ ...a, value: this.rewriteShortDots(a.value) })),
+        };
+      default:
+        return expr;
+    }
   }
 
   // ─── Helpers ───
@@ -1160,6 +1250,16 @@ export class Parser {
     while (this.check(TokenKind.Newline)) {
       this.advance();
     }
+  }
+
+  private checkSkippingNewlines(kind: TokenKind): boolean {
+    const saved = this.pos;
+    while (this.current().kind === TokenKind.Newline) {
+      this.pos++;
+    }
+    const found = this.current().kind === kind;
+    this.pos = saved;
+    return found;
   }
 
   private position(): Position {

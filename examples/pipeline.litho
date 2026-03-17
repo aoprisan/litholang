@@ -9,14 +9,25 @@ struct Report has
 end
 
 define daily_report(date: Date) -> Result<Report, Error> as
-  completed = db.sales |> filter(each s => s.date == date) |> collect
+  completed = db.sales
+    |> filter(where .date == date)
+    |> filter(where .status == "completed")
+    |> collect
 
-  by_category = completed |> group(each s => s.category)
+  by_category = completed
+    |> group(by .category)
+    |> sort(by .total, descending)
 
-  total_revenue = completed |> sum(each s => s.amount)
+  total_revenue = completed |> sum(of .amount)
   count = completed.length
 
-  report = Report(date: date, total_revenue: total_revenue, transaction_count: count, by_category: by_category, generated_at: now())
+  report = Report(
+    date: date,
+    total_revenue: total_revenue,
+    transaction_count: count,
+    by_category: by_category,
+    generated_at: now()
+  )
 
   return ok(report)
 end

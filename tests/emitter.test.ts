@@ -288,4 +288,70 @@ end`);
 
     expect(output).toContain('greeting: string = "Hello"');
   });
+
+  it("emits tuple expression as array", () => {
+    const output = compileToTS(`define test(x: Number, y: Text) -> Void as
+  t = (x, y)
+  return t
+end`);
+
+    expect(output).toContain("const t = [x, y];");
+  });
+
+  it("emits tuple match with array indexing", () => {
+    const output = compileToTS(`define test(x: Number, y: Text) -> Text as
+  match (x, y) on
+    case (1, "hi") => return "match"
+    case (_, _) => return "other"
+  end
+end`);
+
+    expect(output).toContain("[x, y][0] === 1");
+    expect(output).toContain('[x, y][1] === "hi"');
+  });
+
+  it("emits where keyword as lambda", () => {
+    const output = compileToTS(`define test(items: List<Number>) -> List<Number> as
+  result = items |> filter(where .active == true)
+  return result
+end`);
+
+    expect(output).toContain("filter(items, (__it) => (__it.active == true))");
+  });
+
+  it("emits of keyword as lambda", () => {
+    const output = compileToTS(`define test(items: List<Number>) -> Number as
+  result = items |> sum(of .amount)
+  return result
+end`);
+
+    expect(output).toContain("sum(items, (__it) => __it.amount)");
+  });
+
+  it("emits multi-line pipeline", () => {
+    const output = compileToTS(`define test(data: List<Number>) -> List<Number> as
+  result = data
+    |> filter(x)
+    |> sort(y)
+  return result
+end`);
+
+    expect(output).toContain("sort(filter(data, x), y)");
+  });
+
+  it("emits multi-line constructor call", () => {
+    const output = compileToTS(`struct Point has
+  x: Number
+  y: Number
+end
+
+define test() -> Point as
+  return Point(
+    x: 10,
+    y: 20
+  )
+end`);
+
+    expect(output).toContain("{ x: 10, y: 20 }");
+  });
 });

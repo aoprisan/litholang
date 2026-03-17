@@ -583,6 +583,13 @@ export class TypeChecker {
         }
         return { kind: "unknown" };
       }
+
+      case "TupleExpr": {
+        for (const el of expr.elements) {
+          this.inferExpression(el, scope);
+        }
+        return { kind: "unknown" };
+      }
     }
   }
 

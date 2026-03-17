@@ -319,6 +319,8 @@ export class TypeScriptEmitter {
         return this.exprUsesPropagation(expr.expr);
       case "ListLiteral":
         return expr.elements.some(e => this.exprUsesPropagation(e));
+      case "TupleExpr":
+        return expr.elements.some(e => this.exprUsesPropagation(e));
       default:
         return false;
     }
@@ -635,6 +637,8 @@ export class TypeScriptEmitter {
         const exprs = expr.exprs.map((e) => this.emitExpression(e)).join(", ");
         return `await Promise.all([${exprs}])`;
       }
+      case "TupleExpr":
+        return `[${expr.elements.map((e) => this.emitExpression(e)).join(", ")}]`;
     }
   }
 

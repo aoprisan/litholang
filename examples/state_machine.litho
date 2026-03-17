@@ -21,23 +21,23 @@ struct Order has
   total: Number
 end
 
--- Transition using match on status with guards
+-- Transition uses tuple matching on (status, action)
 define transition(order: Order, action: Text) -> Result<Order, Text> as
-  match order.status on
-    case Pending where action == "pay" =>
+  match (order.status, action) on
+    case (Pending, "pay") =>
       return ok(order with status: Paid)
 
-    case Paid where action == "ship" =>
+    case (Paid, "ship") =>
       tracking = generate_tracking()
-      return ok(order with status: Shipped)
+      return ok(order with status: Shipped, tracking: tracking)
 
-    case Shipped where action == "deliver" =>
+    case (Shipped, "deliver") =>
       return ok(order with status: Delivered)
 
-    case Pending where action == "cancel" =>
+    case (Pending, "cancel") =>
       return ok(order with status: Cancelled)
 
-    case _ =>
+    case (_, _) =>
       return err("Cannot perform action from current status")
   end
 end

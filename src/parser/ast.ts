@@ -160,6 +160,12 @@ export interface AllExpr {
   position: Position;
 }
 
+export interface TupleExpr {
+  kind: "TupleExpr";
+  elements: Expression[];
+  position: Position;
+}
+
 export type Expression =
   | NumberLiteral
   | TextLiteral
@@ -178,7 +184,8 @@ export type Expression =
   | ListLiteral
   | ConstructExpr
   | AwaitExpr
-  | AllExpr;
+  | AllExpr
+  | TupleExpr;
 
 // ─── Statement Nodes ───
 
