@@ -1,3 +1,36 @@
+// --- Litholang Prelude ---
+function print(...args: unknown[]): void {
+  console.log(...args);
+}
+
+function to_text(value: unknown): string {
+  return String(value);
+}
+
+function to_number(value: unknown): number {
+  return Number(value);
+}
+
+function length(value: string | unknown[]): number {
+  return value.length;
+}
+
+function range(start: number, end?: number): number[] {
+  if (end === undefined) {
+    end = start;
+    start = 0;
+  }
+  const result: number[] = [];
+  for (let i = start; i < end; i++) {
+    result.push(i);
+  }
+  return result;
+}
+
+function panic(message: string): never {
+  throw new Error(message);
+}
+
 function __propagateResult<T, E>(result: { ok: true; value: T } | { ok: false; error: E }): T {
   if (!result.ok) throw { __lithoPropagate: true, value: result };
   return result.value;

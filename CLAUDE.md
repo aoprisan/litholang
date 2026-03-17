@@ -11,6 +11,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npx vitest run -t "test name"` — Run a single test by name
 - `npm run litho -- compile <file.litho>` — Compile a .litho file to TypeScript (uses tsx)
 - `npm run litho -- check <file.litho>` — Type-check a .litho file without emitting
+- `npm run litho -- fmt <file.litho>` — Format a .litho file in place
+- `npm run litho -- fmt <file.litho> --check` — Check if a file is formatted (exit 1 if not)
 
 ## Architecture
 
@@ -24,6 +26,9 @@ The compiler pipeline flows linearly:
 - **Parser** (`src/parser/`): Hand-written recursive descent parser (no parser generators). Builds AST from token stream. All AST node types are discriminated unions on a `kind` field, defined in `ast.ts`.
 - **Type Checker** (`src/typechecker/typechecker.ts`): Validates types at function boundaries and struct fields. Infers local variable types. Includes tail recursion analysis (`tailrec.ts`) and mutual recursion trampoline optimization (`trampoline.ts`).
 - **Emitter** (`src/emitter/typescript.ts`): Walks AST and produces TypeScript. Emitter methods follow the pattern `emitNodeKind(node): string`. One emitter file per target language (only TypeScript exists currently).
+- **Formatter** (`src/formatter/formatter.ts`): Formats AST back into canonical Litho source. Used by `litho fmt`.
+- **Diagnostics** (`src/diagnostics.ts`): Formats type errors with source context, line numbers, and caret pointers.
+- **Runtime** (`src/runtime/`): Prelude (`prelude.ts`) and collection (`collections.ts`) functions auto-injected into compiled output when used. Provides `print`, `range`, `filter`, `map`, `sort`, etc.
 - **CLI** (`src/cli.ts`): Entry point for `litho compile|check|fmt` commands. Orchestrates the full pipeline.
 - **Public API** (`src/index.ts`): Re-exports all compiler components for programmatic use.
 
@@ -51,7 +56,7 @@ Tests live in `tests/` with one test file per compiler phase (e.g., `tests/lexer
 
 ### Keywords
 
-`define`, `struct`, `enum`, `has`, `is`, `as`, `end`, `if`, `then`, `else`, `for`, `in`, `do`, `match`, `on`, `case`, `return`, `check`, `or`, `with`, `where`, `each`, `async`, `await`, `all`, `import`, `from`, `self`, `and`, `not`, `type`, `extern`
+`define`, `struct`, `enum`, `has`, `is`, `as`, `end`, `if`, `then`, `else`, `for`, `in`, `do`, `match`, `on`, `case`, `return`, `check`, `or`, `with`, `where`, `each`, `async`, `await`, `all`, `import`, `from`, `self`, `and`, `not`, `type`, `extern`, `of`, `by`
 
 ### Built-in Types
 

@@ -37,3 +37,9 @@ export { TypeChecker } from "./typechecker/typechecker.js";
 export type { TypeError, LithoType } from "./typechecker/typechecker.js";
 
 export { TypeScriptEmitter } from "./emitter/typescript.js";
+
+export { Formatter } from "./formatter/formatter.js";
+export { formatDiagnostic, formatDiagnostics } from "./diagnostics.js";
+export type { Diagnostic } from "./diagnostics.js";
+export { PRELUDE_FUNCTIONS, PRELUDE_CODE } from "./runtime/prelude.js";
+export { COLLECTION_FUNCTIONS, COLLECTIONS_CODE } from "./runtime/collections.js";

@@ -354,4 +354,59 @@ end`);
 
     expect(output).toContain("{ x: 10, y: 20 }");
   });
+
+  it("emits named arguments without comment wrappers", () => {
+    const output = compileToTS(`define test() -> Void as
+  result = some_func(name: "Alice", age: 30)
+  return result
+end`);
+
+    expect(output).not.toContain("/* name:");
+    expect(output).not.toContain("/* age:");
+    expect(output).toContain('some_func("Alice", 30)');
+  });
+
+  it("prepends prelude when prelude functions are used", () => {
+    const output = compileToTS(`define test() -> Void as
+  print("hello")
+  n = range(10)
+  return undefined
+end`);
+
+    expect(output).toContain("// --- Litholang Prelude ---");
+    expect(output).toContain("function print(");
+    expect(output).toContain("function range(");
+  });
+
+  it("prepends collections when collection functions are used", () => {
+    const output = compileToTS(`define test(items: List<Number>) -> List<Number> as
+  result = filter(items, each x => x > 0)
+  return result
+end`);
+
+    expect(output).toContain("// --- Litholang Collections ---");
+    expect(output).toContain("function filter<T>(");
+  });
+
+  it("does not prepend runtime when no runtime functions are used", () => {
+    const output = compileToTS(`define add(a: Number, b: Number) -> Number as
+  return a + b
+end`);
+
+    expect(output).not.toContain("// --- Litholang Prelude ---");
+    expect(output).not.toContain("// --- Litholang Collections ---");
+  });
+
+  it("does not prepend runtime when user defines same-named function", () => {
+    const output = compileToTS(`define print(msg: Text) -> Void as
+  return undefined
+end
+
+define test() -> Void as
+  print("hello")
+  return undefined
+end`);
+
+    expect(output).not.toContain("// --- Litholang Prelude ---");
+  });
 });
