@@ -198,6 +198,10 @@ function findNonTailInStatement(
       findNonTailInExpr(stmt.condition, groupNames, false, nonTailCalls);
       findNonTailInExpr(stmt.fallback, groupNames, false, nonTailCalls);
       break;
+    case "RepeatStatement":
+      findNonTailInExpr(stmt.condition, groupNames, false, nonTailCalls);
+      for (const s of stmt.body) findNonTailInStatement(s, groupNames, false, nonTailCalls);
+      break;
   }
 }
 
@@ -270,6 +274,11 @@ function findNonTailInExpr(
     case "IdentifierExpr":
     case "SelfExpr":
     case "ShortDotAccess":
+      break;
+
+    case "RangeExpr":
+      findNonTailInExpr(expr.start, groupNames, false, nonTailCalls);
+      findNonTailInExpr(expr.end, groupNames, false, nonTailCalls);
       break;
   }
 }

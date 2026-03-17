@@ -166,6 +166,13 @@ export interface TupleExpr {
   position: Position;
 }
 
+export interface RangeExpr {
+  kind: "RangeExpr";
+  start: Expression;
+  end: Expression;
+  position: Position;
+}
+
 export type Expression =
   | NumberLiteral
   | TextLiteral
@@ -185,7 +192,8 @@ export type Expression =
   | ConstructExpr
   | AwaitExpr
   | AllExpr
-  | TupleExpr;
+  | TupleExpr
+  | RangeExpr;
 
 // ─── Statement Nodes ───
 
@@ -240,6 +248,13 @@ export interface CheckStatement {
   position: Position;
 }
 
+export interface RepeatStatement {
+  kind: "RepeatStatement";
+  condition: Expression;
+  body: Statement[];
+  position: Position;
+}
+
 export interface ExpressionStatement {
   kind: "ExpressionStatement";
   expr: Expression;
@@ -253,6 +268,7 @@ export type Statement =
   | ForStatement
   | MatchStatement
   | CheckStatement
+  | RepeatStatement
   | ExpressionStatement;
 
 // ─── Pattern Nodes ───
@@ -282,12 +298,18 @@ export interface WildcardPattern {
   kind: "WildcardPattern";
 }
 
+export interface OrPattern {
+  kind: "OrPattern";
+  patterns: Pattern[];
+}
+
 export type Pattern =
   | LiteralPattern
   | IdentifierPattern
   | TuplePattern
   | ConstructorPattern
-  | WildcardPattern;
+  | WildcardPattern
+  | OrPattern;
 
 // ─── Declaration Nodes ───
 
@@ -329,10 +351,15 @@ export interface StructDef {
   position: Position;
 }
 
+export interface EnumVariant {
+  name: string;
+  fields: FieldDef[];  // empty for simple variants
+}
+
 export interface EnumDef {
   kind: "EnumDef";
   name: string;
-  variants: string[];
+  variants: EnumVariant[];
   annotations: Annotation[];
   position: Position;
 }

@@ -214,11 +214,30 @@ export class Parser {
     this.consume(TokenKind.Is, "'is'");
     this.skipNewlines();
 
-    const variants: string[] = [];
+    const variants: import("./ast.js").EnumVariant[] = [];
     while (!this.check(TokenKind.End)) {
       this.skipNewlines();
       if (this.check(TokenKind.End)) break;
-      variants.push(this.consume(TokenKind.Identifier, "variant name").value);
+      const variantName = this.consume(TokenKind.Identifier, "variant name").value;
+      const fields: import("./ast.js").FieldDef[] = [];
+      if (this.check(TokenKind.LeftParen)) {
+        this.advance();
+        this.skipNewlines();
+        if (!this.check(TokenKind.RightParen)) {
+          do {
+            const fieldName = this.consume(TokenKind.Identifier, "field name").value;
+            this.consume(TokenKind.Colon, "':'");
+            const type = this.parseType();
+            fields.push({ name: fieldName, type });
+            if (!this.check(TokenKind.Comma)) break;
+            this.advance();
+            this.skipNewlines();
+          } while (true);
+        }
+        this.skipNewlines();
+        this.consume(TokenKind.RightParen, "')'");
+      }
+      variants.push({ name: variantName, fields });
       this.skipNewlines();
     }
 
@@ -388,6 +407,8 @@ export class Parser {
         return this.parseMatchStatement();
       case TokenKind.Check:
         return this.parseCheckStatement();
+      case TokenKind.Repeat:
+        return this.parseRepeatStatement();
       default: {
         // Assignment or expression statement
         // Look ahead: identifier followed by = (but not ==)
@@ -577,6 +598,21 @@ export class Parser {
     };
   }
 
+  private parseRepeatStatement(): Statement {
+    const repeatToken = this.consume(TokenKind.Repeat, "'repeat'");
+    this.consume(TokenKind.While, "'while'");
+    const condition = this.parseExpression();
+    this.consume(TokenKind.Do, "'do'");
+    const body = this.parseStatementBlock();
+    this.consume(TokenKind.End, "'end'");
+    return {
+      kind: "RepeatStatement",
+      condition,
+      body,
+      position: { line: repeatToken.line, column: repeatToken.column },
+    };
+  }
+
   private parseAssignment(): Statement {
     const token = this.current();
     const target = this.consume(TokenKind.Identifier, "variable name").value;
@@ -599,6 +635,20 @@ export class Parser {
   // ─── Patterns ───
 
   private parsePattern(): Pattern {
+    const first = this.parseSinglePattern();
+
+    if (!this.check(TokenKind.Bar)) return first;
+
+    // Or-pattern: pattern | pattern | ...
+    const patterns: Pattern[] = [first];
+    while (this.check(TokenKind.Bar)) {
+      this.advance();
+      patterns.push(this.parseSinglePattern());
+    }
+    return { kind: "OrPattern", patterns };
+  }
+
+  private parseSinglePattern(): Pattern {
     const token = this.current();
 
     // Wildcard
@@ -779,7 +829,7 @@ export class Parser {
   }
 
   private parseComparison(): Expression {
-    let left = this.parseAddition();
+    let left = this.parseRange();
     while (
       this.check(TokenKind.LessThan) ||
       this.check(TokenKind.GreaterThan) ||
@@ -787,12 +837,27 @@ export class Parser {
       this.check(TokenKind.GreaterOrEqual)
     ) {
       const op = this.advance().value;
-      const right = this.parseAddition();
+      const right = this.parseRange();
       left = {
         kind: "BinaryExpr",
         operator: op,
         left,
         right,
+        position: this.positionOf(left),
+      };
+    }
+    return left;
+  }
+
+  private parseRange(): Expression {
+    const left = this.parseAddition();
+    if (this.check(TokenKind.DotDot)) {
+      this.advance();
+      const right = this.parseAddition();
+      return {
+        kind: "RangeExpr",
+        start: left,
+        end: right,
         position: this.positionOf(left),
       };
     }

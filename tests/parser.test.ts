@@ -72,7 +72,39 @@ end`);
     expect(enumDef.kind).toBe("EnumDef");
     if (enumDef.kind === "EnumDef") {
       expect(enumDef.name).toBe("Color");
-      expect(enumDef.variants).toEqual(["Red", "Green", "Blue"]);
+      expect(enumDef.variants).toEqual([
+        { name: "Red", fields: [] },
+        { name: "Green", fields: [] },
+        { name: "Blue", fields: [] },
+      ]);
+    }
+  });
+
+  it("parses tagged union enum with variant data", () => {
+    const ast = parse(`enum Shape is
+  Circle(radius: Number)
+  Rectangle(width: Number, height: Number)
+  Point
+end`);
+
+    expect(ast.declarations).toHaveLength(1);
+    const enumDef = ast.declarations[0];
+    expect(enumDef.kind).toBe("EnumDef");
+    if (enumDef.kind === "EnumDef") {
+      expect(enumDef.name).toBe("Shape");
+      expect(enumDef.variants).toHaveLength(3);
+      expect(enumDef.variants[0]).toEqual({
+        name: "Circle",
+        fields: [{ name: "radius", type: { kind: "SimpleType", name: "Number", position: expect.any(Object) } }],
+      });
+      expect(enumDef.variants[1]).toEqual({
+        name: "Rectangle",
+        fields: [
+          { name: "width", type: { kind: "SimpleType", name: "Number", position: expect.any(Object) } },
+          { name: "height", type: { kind: "SimpleType", name: "Number", position: expect.any(Object) } },
+        ],
+      });
+      expect(enumDef.variants[2]).toEqual({ name: "Point", fields: [] });
     }
   });
 
@@ -501,5 +533,65 @@ end`);
     expect(ast.declarations).toHaveLength(2);
     expect(ast.declarations[0].kind).toBe("StructDef");
     expect(ast.declarations[1].kind).toBe("FunctionDef");
+  });
+
+  it("parses or-patterns in match cases", () => {
+    const ast = parse(`define test(s: Text) -> Text as
+  match s on
+    case "active" | "pending" => "open"
+    case "closed" | "archived" => "done"
+    case _ => "unknown"
+  end
+end`);
+
+    const func = ast.declarations[0];
+    if (func.kind === "FunctionDef") {
+      const match = func.body[0];
+      if (match.kind === "MatchStatement") {
+        expect(match.cases[0].pattern.kind).toBe("OrPattern");
+        if (match.cases[0].pattern.kind === "OrPattern") {
+          expect(match.cases[0].pattern.patterns).toHaveLength(2);
+          expect(match.cases[0].pattern.patterns[0].kind).toBe("LiteralPattern");
+          expect(match.cases[0].pattern.patterns[1].kind).toBe("LiteralPattern");
+        }
+      }
+    }
+  });
+
+  it("parses range expressions", () => {
+    const ast = parse(`define test() -> List<Number> as
+  return 1..10
+end`);
+
+    const func = ast.declarations[0];
+    if (func.kind === "FunctionDef") {
+      const ret = func.body[0];
+      if (ret.kind === "ReturnStatement") {
+        expect(ret.value.kind).toBe("RangeExpr");
+        if (ret.value.kind === "RangeExpr") {
+          expect(ret.value.start.kind).toBe("NumberLiteral");
+          expect(ret.value.end.kind).toBe("NumberLiteral");
+        }
+      }
+    }
+  });
+
+  it("parses repeat-while loops", () => {
+    const ast = parse(`define test(x: Number) -> Number as
+  repeat while x > 0 do
+    x = x - 1
+  end
+  return x
+end`);
+
+    const func = ast.declarations[0];
+    if (func.kind === "FunctionDef") {
+      const repeat = func.body[0];
+      expect(repeat.kind).toBe("RepeatStatement");
+      if (repeat.kind === "RepeatStatement") {
+        expect(repeat.condition.kind).toBe("BinaryExpr");
+        expect(repeat.body).toHaveLength(1);
+      }
+    }
   });
 });

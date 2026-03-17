@@ -111,7 +111,14 @@ export class Formatter {
     lines.push(`${this.pad()}enum ${enumDef.name} is`);
     this.indent++;
     for (const variant of enumDef.variants) {
-      lines.push(`${this.pad()}${variant}`);
+      if (variant.fields.length === 0) {
+        lines.push(`${this.pad()}${variant.name}`);
+      } else {
+        const fields = variant.fields
+          .map(f => `${f.name}: ${this.formatType(f.type)}`)
+          .join(", ");
+        lines.push(`${this.pad()}${variant.name}(${fields})`);
+      }
     }
     this.indent--;
     lines.push(`${this.pad()}end`);
@@ -212,6 +219,16 @@ export class Formatter {
 
       case "CheckStatement":
         return `${this.pad()}check ${this.formatExpression(stmt.condition)} or return ${this.formatExpression(stmt.fallback)}`;
+
+      case "RepeatStatement": {
+        const lines: string[] = [];
+        lines.push(`${this.pad()}repeat while ${this.formatExpression(stmt.condition)} do`);
+        this.indent++;
+        for (const s of stmt.body) lines.push(this.formatStatement(s));
+        this.indent--;
+        lines.push(`${this.pad()}end`);
+        return lines.join("\n");
+      }
     }
   }
 
@@ -229,6 +246,8 @@ export class Formatter {
         return pattern.inner
           ? `${pattern.name}(${this.formatPattern(pattern.inner)})`
           : pattern.name;
+      case "OrPattern":
+        return pattern.patterns.map(p => this.formatPattern(p)).join(" | ");
     }
   }
 
@@ -318,6 +337,9 @@ export class Formatter {
         const exprs = expr.exprs.map(e => this.formatExpression(e)).join(", ");
         return `all [${exprs}]`;
       }
+
+      case "RangeExpr":
+        return `${this.formatExpression(expr.start)}..${this.formatExpression(expr.end)}`;
     }
   }
 
