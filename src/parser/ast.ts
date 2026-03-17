@@ -1,4 +1,4 @@
-// ClarityLang Abstract Syntax Tree node types
+// LithoLang Abstract Syntax Tree node types
 // Every node is a discriminated union on the `kind` field.
 
 export interface Position {

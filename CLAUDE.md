@@ -9,25 +9,25 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run test:watch` — Run tests in watch mode
 - `npx vitest run tests/lexer.test.ts` — Run a single test file
 - `npx vitest run -t "test name"` — Run a single test by name
-- `npm run clarity -- compile <file.clarity>` — Compile a .clarity file to TypeScript (uses tsx)
-- `npm run clarity -- check <file.clarity>` — Type-check a .clarity file without emitting
+- `npm run litho -- compile <file.litho>` — Compile a .litho file to TypeScript (uses tsx)
+- `npm run litho -- check <file.litho>` — Type-check a .litho file without emitting
 
 ## Architecture
 
 The compiler pipeline flows linearly:
 
 ```
-.clarity source → Lexer → Parser (AST) → Type Checker → Emitter → .ts output
+.litho source → Lexer → Parser (AST) → Type Checker → Emitter → .ts output
 ```
 
 - **Lexer** (`src/lexer/`): Tokenizes source into tokens. Keywords map via `KEYWORDS` in `tokens.ts`. Handles `keyword...end` block structure.
 - **Parser** (`src/parser/`): Hand-written recursive descent parser (no parser generators). Builds AST from token stream. All AST node types are discriminated unions on a `kind` field, defined in `ast.ts`.
 - **Type Checker** (`src/typechecker/typechecker.ts`): Validates types at function boundaries and struct fields. Infers local variable types. Includes tail recursion analysis (`tailrec.ts`) and mutual recursion trampoline optimization (`trampoline.ts`).
 - **Emitter** (`src/emitter/typescript.ts`): Walks AST and produces TypeScript. Emitter methods follow the pattern `emitNodeKind(node): string`. One emitter file per target language (only TypeScript exists currently).
-- **CLI** (`src/cli.ts`): Entry point for `clarity compile|check|fmt` commands. Orchestrates the full pipeline.
+- **CLI** (`src/cli.ts`): Entry point for `litho compile|check|fmt` commands. Orchestrates the full pipeline.
 - **Public API** (`src/index.ts`): Re-exports all compiler components for programmatic use.
 
-Tests live in `tests/` with one test file per compiler phase (e.g., `tests/lexer.test.ts`, `tests/parser.test.ts`). Example `.clarity` programs are in `examples/`.
+Tests live in `tests/` with one test file per compiler phase (e.g., `tests/lexer.test.ts`, `tests/parser.test.ts`). Example `.litho` programs are in `examples/`.
 
 ## Design Principles
 

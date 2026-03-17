@@ -20,7 +20,7 @@ import {
 } from "./ast.js";
 
 /**
- * Recursive descent parser for ClarityLang.
+ * Recursive descent parser for LithoLang.
  *
  * Consumes tokens from the Lexer and produces a Program AST.
  * The grammar is context-free with no ambiguities:

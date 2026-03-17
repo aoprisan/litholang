@@ -1,4 +1,4 @@
-// Trampoline transformation for mutual recursion in ClarityLang
+// Trampoline transformation for mutual recursion in LithoLang
 //
 // Functions annotated with @trampoline are transformed so that instead
 // of directly calling each other (which would overflow the stack),
