@@ -1,9 +1,9 @@
 {
-  "name": "claritylang",
-  "displayName": "ClarityLang",
-  "description": "Language support for ClarityLang — a programming language designed for LLM code generation that transpiles to TypeScript",
+  "name": "litholang",
+  "displayName": "LithoLang",
+  "description": "Language support for LithoLang — a programming language designed for LLM code generation that transpiles to TypeScript",
   "version": "0.1.0",
-  "publisher": "claritylang",
+  "publisher": "litholang",
   "license": "MIT",
   "engines": {
     "vscode": "^1.75.0"
@@ -13,46 +13,46 @@
     "Snippets"
   ],
   "keywords": [
-    "clarity",
-    "claritylang",
+    "litho",
+    "litholang",
     "transpiler",
     "llm",
     "programming-language"
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/claritylang/claritylang"
+    "url": "https://github.com/litholang/litholang"
   },
   "contributes": {
     "languages": [
       {
-        "id": "clarity",
+        "id": "litho",
         "aliases": [
-          "ClarityLang",
-          "Clarity",
-          "clarity"
+          "LithoLang",
+          "Litho",
+          "litho"
         ],
         "extensions": [
-          ".clarity"
+          ".litho"
         ],
         "configuration": "./language-configuration.json",
         "icon": {
-          "light": "./icons/clarity-light.png",
-          "dark": "./icons/clarity-dark.png"
+          "light": "./icons/litho-light.png",
+          "dark": "./icons/litho-dark.png"
         }
       }
     ],
     "grammars": [
       {
-        "language": "clarity",
-        "scopeName": "source.clarity",
-        "path": "./syntaxes/clarity.tmLanguage.json"
+        "language": "litho",
+        "scopeName": "source.litho",
+        "path": "./syntaxes/litho.tmLanguage.json"
       }
     ],
     "snippets": [
       {
-        "language": "clarity",
-        "path": "./snippets/clarity.json"
+        "language": "litho",
+        "path": "./snippets/litho.json"
       }
     ]
   }

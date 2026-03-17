@@ -14,15 +14,15 @@ import {
 
 // ─── Type Representations ───
 
-export type ClarityType =
+export type LithoType =
   | { kind: "primitive"; name: "Number" | "Text" | "Boolean" | "Void" }
-  | { kind: "list"; element: ClarityType }
-  | { kind: "map"; key: ClarityType; value: ClarityType }
-  | { kind: "set"; element: ClarityType }
-  | { kind: "maybe"; inner: ClarityType }
-  | { kind: "result"; ok: ClarityType; error: ClarityType }
-  | { kind: "function"; params: ClarityType[]; returnType: ClarityType }
-  | { kind: "struct"; name: string; fields: Map<string, ClarityType> }
+  | { kind: "list"; element: LithoType }
+  | { kind: "map"; key: LithoType; value: LithoType }
+  | { kind: "set"; element: LithoType }
+  | { kind: "maybe"; inner: LithoType }
+  | { kind: "result"; ok: LithoType; error: LithoType }
+  | { kind: "function"; params: LithoType[]; returnType: LithoType }
+  | { kind: "struct"; name: string; fields: Map<string, LithoType> }
   | { kind: "enum"; name: string; variants: string[] }
   | { kind: "named"; name: string }
   | { kind: "unknown" };
@@ -35,7 +35,7 @@ export interface TypeError {
 // ─── Environment (scope chain) ───
 
 interface Scope {
-  variables: Map<string, ClarityType>;
+  variables: Map<string, LithoType>;
   parent: Scope | null;
 }
 
@@ -43,7 +43,7 @@ function createScope(parent: Scope | null): Scope {
   return { variables: new Map(), parent };
 }
 
-function lookupVariable(scope: Scope, name: string): ClarityType | null {
+function lookupVariable(scope: Scope, name: string): LithoType | null {
   const found = scope.variables.get(name);
   if (found) return found;
   if (scope.parent) return lookupVariable(scope.parent, name);
@@ -207,7 +207,7 @@ export class TypeChecker {
   private checkBody(
     body: Statement[],
     scope: Scope,
-    declaredReturn: ClarityType | null,
+    declaredReturn: LithoType | null,
     functionName: string,
   ): void {
     for (const stmt of body) {
@@ -218,7 +218,7 @@ export class TypeChecker {
   private checkStatement(
     stmt: Statement,
     scope: Scope,
-    declaredReturn: ClarityType | null,
+    declaredReturn: LithoType | null,
     functionName: string,
   ): void {
     switch (stmt.kind) {
@@ -323,7 +323,7 @@ export class TypeChecker {
     }
   }
 
-  private inferExpression(expr: Expression, scope: Scope): ClarityType {
+  private inferExpression(expr: Expression, scope: Scope): LithoType {
     switch (expr.kind) {
       case "NumberLiteral":
         return { kind: "primitive", name: "Number" };
@@ -624,7 +624,7 @@ export class TypeChecker {
     }
   }
 
-  private resolveTypeNode(type: TypeNode): ClarityType {
+  private resolveTypeNode(type: TypeNode): LithoType {
     switch (type.kind) {
       case "SimpleType": {
         if (type.name === "Number") return { kind: "primitive", name: "Number" };
@@ -634,7 +634,7 @@ export class TypeChecker {
 
         const struct = this.structs.get(type.name);
         if (struct) {
-          const fields = new Map<string, ClarityType>();
+          const fields = new Map<string, LithoType>();
           for (const f of struct.fields) {
             fields.set(f.name, this.resolveTypeNode(f.type));
           }
@@ -684,7 +684,7 @@ export class TypeChecker {
     }
   }
 
-  private isAssignable(source: ClarityType, target: ClarityType): boolean {
+  private isAssignable(source: LithoType, target: LithoType): boolean {
     // Unknown is always compatible (can't prove mismatch)
     if (source.kind === "unknown" || target.kind === "unknown") return true;
 
@@ -733,7 +733,7 @@ export class TypeChecker {
     return true; // default: don't block on uncertain types
   }
 
-  private typeToString(type: ClarityType): string {
+  private typeToString(type: LithoType): string {
     switch (type.kind) {
       case "primitive": return type.name;
       case "list": return `List<${this.typeToString(type.element)}>`;

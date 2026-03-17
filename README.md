@@ -1,8 +1,8 @@
-# ClarityLang
+# LithoLang
 
 A programming language designed for LLM code generation — transpiles to TypeScript.
 
-Clarity uses English-like keywords, explicit types at boundaries, and a flat `keyword...end` block structure so that both humans and language models can read and generate code with minimal ambiguity.
+Litho uses English-like keywords, explicit types at boundaries, and a flat `keyword...end` block structure so that both humans and language models can read and generate code with minimal ambiguity.
 
 ## Quick Start
 
@@ -10,16 +10,16 @@ Clarity uses English-like keywords, explicit types at boundaries, and a flat `ke
 npm install
 npm run build
 
-# Compile a .clarity file to TypeScript
-npm run clarity -- compile examples/pipeline.clarity
+# Compile a .litho file to TypeScript
+npm run litho -- compile examples/pipeline.litho
 
 # Type-check without emitting
-npm run clarity -- check examples/pipeline.clarity
+npm run litho -- check examples/pipeline.litho
 ```
 
 ## Example
 
-```clarity
+```litho
 @purpose "Process daily sales and generate report"
 
 define daily_report(date: Date) -> Result<Report, Error> as
@@ -53,13 +53,13 @@ More examples in [`examples/`](examples/).
 
 **Pipelines** as primary data flow:
 
-```clarity
+```litho
 data |> filter(where .active) |> map(each x => x.name) |> collect
 ```
 
 **Errors as values** with `Result<T,E>` and `?` propagation:
 
-```clarity
+```litho
 body = request.parse_json(as: NewUser)?
 
 check body.password.length >= 8
@@ -68,7 +68,7 @@ check body.password.length >= 8
 
 **Pattern matching:**
 
-```clarity
+```litho
 match order.status on
   case Pending  => process_payment(order)
   case Shipped  => track_delivery(order)
@@ -78,13 +78,13 @@ end
 
 **Immutable updates:**
 
-```clarity
+```litho
 updated = order with status: Paid
 ```
 
 **Tail recursion** (`@tailrec`) compiled to while loops, and **mutual recursion** (`@trampoline`) compiled to thunk bouncing:
 
-```clarity
+```litho
 @tailrec
 define factorial(n: Number, acc: Number) -> Number as
   if n <= 1 then
@@ -97,7 +97,7 @@ end
 
 **Semantic annotations** that carry meaning:
 
-```clarity
+```litho
 @purpose "Compute factorial using tail-recursive accumulator pattern"
 @invariant "n >= 0"
 @example "factorial(5, 1) => 120"
@@ -110,7 +110,7 @@ end
 ## Architecture
 
 ```
-.clarity source → Lexer → Parser (AST) → Type Checker → Emitter → .ts output
+.litho source → Lexer → Parser (AST) → Type Checker → Emitter → .ts output
 ```
 
 | Stage | Location | Description |

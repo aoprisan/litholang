@@ -1,9 +1,9 @@
 import { Token, TokenKind, KEYWORDS } from "./tokens.js";
 
 /**
- * Lexer for ClarityLang source code.
+ * Lexer for LithoLang source code.
  *
- * Tokenizes .clarity files into a stream of Token objects.
+ * Tokenizes .litho files into a stream of Token objects.
  * Key behaviors:
  * - `--` starts a line comment (ignored)
  * - `@word` produces an Annotation token

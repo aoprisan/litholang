@@ -375,7 +375,7 @@ end`);
     expect(output).toContain("function __propagateResult");
     expect(output).toContain("try {");
     expect(output).toContain("__propagateResult(x)");
-    expect(output).toContain("__clarityPropagate");
+    expect(output).toContain("__lithoPropagate");
   });
 
   it("does not emit try-catch for functions without propagation", () => {

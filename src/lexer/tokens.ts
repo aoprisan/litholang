@@ -1,4 +1,4 @@
-// All token types in ClarityLang
+// All token types in LithoLang
 
 export enum TokenKind {
   // Literals

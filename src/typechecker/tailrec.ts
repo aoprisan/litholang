@@ -1,4 +1,4 @@
-// Tail recursion analysis for ClarityLang
+// Tail recursion analysis for LithoLang
 //
 // Validates that functions annotated with @tailrec have all recursive
 // calls in tail position. Reports errors with positions when they don't.

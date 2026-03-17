@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 
 /**
- * ClarityLang CLI
+ * LithoLang CLI
  *
  * Usage:
- *   clarity compile <file.clarity>          # Transpile to TypeScript
- *   clarity compile <file.clarity> -o out.ts # Specify output
- *   clarity check <file.clarity>            # Type-check only
- *   clarity fmt <file.clarity>              # Format source
+ *   litho compile <file.litho>          # Transpile to TypeScript
+ *   litho compile <file.litho> -o out.ts # Specify output
+ *   litho check <file.litho>            # Type-check only
+ *   litho fmt <file.litho>              # Format source
  */
 
 import { readFileSync, writeFileSync } from "fs";
@@ -21,12 +21,12 @@ const command = args[0];
 
 if (!command) {
   console.log(`
-ClarityLang v0.1.0
+LithoLang v0.1.0
 
 Usage:
-  clarity compile <file.clarity>    Transpile to TypeScript
-  clarity check <file.clarity>      Type-check only
-  clarity fmt <file.clarity>        Format source
+  litho compile <file.litho>    Transpile to TypeScript
+  litho check <file.litho>      Type-check only
+  litho fmt <file.litho>        Format source
   `);
   process.exit(0);
 }
@@ -66,7 +66,7 @@ switch (command) {
         writeFileSync(args[outputFlag + 1], output);
         console.log(`Compiled ${file} → ${args[outputFlag + 1]}`);
       } else {
-        const outPath = file.replace(/\.clarity$/, ".ts");
+        const outPath = file.replace(/\.litho$/, ".ts");
         writeFileSync(outPath, output);
         console.log(`Compiled ${file} → ${outPath}`);
       }

@@ -1,10 +1,10 @@
-# ClarityLang for Visual Studio Code
+# LithoLang for Visual Studio Code
 
-Language support for [ClarityLang](https://github.com/claritylang/claritylang) — a programming language designed for LLM code generation that transpiles to TypeScript.
+Language support for [LithoLang](https://github.com/litholang/litholang) — a programming language designed for LLM code generation that transpiles to TypeScript.
 
 ## Features
 
-- **Syntax Highlighting** — Full TextMate grammar for `.clarity` files covering keywords, operators, types, annotations, string interpolation, and more
+- **Syntax Highlighting** — Full TextMate grammar for `.litho` files covering keywords, operators, types, annotations, string interpolation, and more
 - **Code Snippets** — Snippets for common patterns: `define`, `struct`, `enum`, `match`, `if`, `check`, `pipe`, annotations, and more
 - **Bracket Matching** — Auto-closing and matching for parentheses, brackets, and quotes
 - **Code Folding** — Fold `keyword...end` blocks (functions, structs, enums, if/for/match)
@@ -16,7 +16,7 @@ Language support for [ClarityLang](https://github.com/claritylang/claritylang) �
 ### From Source
 
 1. Clone this repository
-2. Copy or symlink the `vscode-extension` directory into `~/.vscode/extensions/claritylang`
+2. Copy or symlink the `vscode-extension` directory into `~/.vscode/extensions/litholang`
 3. Restart VS Code
 
 ### Using VSIX
@@ -24,7 +24,7 @@ Language support for [ClarityLang](https://github.com/claritylang/claritylang) �
 ```bash
 cd vscode-extension
 npx @vscode/vsce package
-code --install-extension claritylang-0.1.0.vsix
+code --install-extension litholang-0.1.0.vsix
 ```
 
 ## Supported Syntax

@@ -23,7 +23,7 @@ import {
 } from "../typechecker/trampoline.js";
 
 /**
- * Emits TypeScript code from a ClarityLang AST.
+ * Emits TypeScript code from a LithoLang AST.
  *
  * Mapping rules:
  * - `define name(p: T) -> R as...end`  →  `function name(p: T): R { ... }`
@@ -140,7 +140,7 @@ export class TypeScriptEmitter {
     if (this.needsResultHelper) {
       helpers.push(
         `function __propagateResult<T, E>(result: { ok: true; value: T } | { ok: false; error: E }): T {`,
-        `  if (!result.ok) throw { __clarityPropagate: true, value: result };`,
+        `  if (!result.ok) throw { __lithoPropagate: true, value: result };`,
         `  return result.value;`,
         `}`,
         "",
@@ -149,7 +149,7 @@ export class TypeScriptEmitter {
     if (this.needsMaybeHelper) {
       helpers.push(
         `function __propagateMaybe<T>(value: T | null): T {`,
-        `  if (value === null) throw { __clarityPropagate: true, value: null };`,
+        `  if (value === null) throw { __lithoPropagate: true, value: null };`,
         `  return value;`,
         `}`,
         "",
@@ -254,7 +254,7 @@ export class TypeScriptEmitter {
 
     if (usesPropagation) {
       lines.push("  } catch (__e: unknown) {");
-      lines.push("    if (__e && typeof __e === \"object\" && \"__clarityPropagate\" in __e) return (__e as { value: unknown }).value;");
+      lines.push("    if (__e && typeof __e === \"object\" && \"__lithoPropagate\" in __e) return (__e as { value: unknown }).value;");
       lines.push("    throw __e;");
       lines.push("  }");
     }
