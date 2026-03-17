@@ -658,8 +658,7 @@ export class Parser {
     let expr = this.parseOr();
 
     // Pipeline: expr |> step |> step (supports multi-line)
-    while (this.checkSkippingNewlines(TokenKind.Pipe)) {
-      this.skipNewlines();
+    while (this.skipNewlinesAndCheck(TokenKind.Pipe)) {
       this.advance();
       this.skipNewlines();
       const steps: { callee: Expression; args: Argument[] }[] = [];
@@ -667,8 +666,7 @@ export class Parser {
       const stepExpr = this.parsePipelineStep();
       steps.push(stepExpr);
 
-      while (this.checkSkippingNewlines(TokenKind.Pipe)) {
-        this.skipNewlines();
+      while (this.skipNewlinesAndCheck(TokenKind.Pipe)) {
         this.advance();
         this.skipNewlines();
         steps.push(this.parsePipelineStep());
@@ -1206,6 +1204,24 @@ export class Parser {
           callee: this.rewriteShortDots(expr.callee),
           args: expr.args.map(a => ({ ...a, value: this.rewriteShortDots(a.value) })),
         };
+      case "ListLiteral":
+      case "TupleExpr":
+        return {
+          ...expr,
+          elements: expr.elements.map(e => this.rewriteShortDots(e)),
+        };
+      case "WithExpr":
+        return {
+          ...expr,
+          base: this.rewriteShortDots(expr.base),
+          updates: expr.updates.map(u => ({ ...u, value: this.rewriteShortDots(u.value) })),
+        };
+      case "PropagateExpr":
+      case "AwaitExpr":
+        return {
+          ...expr,
+          expr: this.rewriteShortDots(expr.expr),
+        };
       default:
         return expr;
     }
@@ -1252,14 +1268,16 @@ export class Parser {
     }
   }
 
-  private checkSkippingNewlines(kind: TokenKind): boolean {
+  private skipNewlinesAndCheck(kind: TokenKind): boolean {
     const saved = this.pos;
     while (this.current().kind === TokenKind.Newline) {
       this.pos++;
     }
-    const found = this.current().kind === kind;
+    if (this.current().kind === kind) {
+      return true; // newlines consumed, caller can advance past the target token
+    }
     this.pos = saved;
-    return found;
+    return false;
   }
 
   private position(): Position {

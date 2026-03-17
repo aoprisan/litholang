@@ -261,11 +261,6 @@ function checkExprForTailCalls(
       break;
 
     case "ListLiteral":
-      for (const el of expr.elements) {
-        checkExprForTailCalls(el, funcName, false, recursiveCalls, tailCalls);
-      }
-      break;
-
     case "TupleExpr":
       for (const el of expr.elements) {
         checkExprForTailCalls(el, funcName, false, recursiveCalls, tailCalls);
