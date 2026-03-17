@@ -478,12 +478,28 @@ export class TypeScriptEmitter {
             subjectExpr,
             bindings
           );
-          if (matchCase.guard) {
-            cond = `${cond} && (${this.emitExpression(matchCase.guard)})`;
-          }
-          lines.push(`${pad}${prefix} (${cond}) {`);
-          for (const binding of bindings) {
-            lines.push(`${pad}  const ${binding.name} = ${binding.expr};`);
+          // When a guard references bound variables, we need to inline the
+          // bindings into the condition so they're available for the guard.
+          if (matchCase.guard && bindings.length > 0) {
+            // Use an IIFE to bind variables before evaluating the guard
+            const bindingAssignments = bindings
+              .map((b) => `const ${b.name} = ${b.expr}`)
+              .join(", ");
+            const guardExpr = this.emitExpression(matchCase.guard);
+            cond = `${cond} && (() => { ${bindingAssignments}; return ${guardExpr}; })()`;
+            lines.push(`${pad}${prefix} (${cond}) {`);
+            // Re-emit bindings inside the block for use in the body
+            for (const binding of bindings) {
+              lines.push(`${pad}  const ${binding.name} = ${binding.expr};`);
+            }
+          } else {
+            if (matchCase.guard) {
+              cond = `${cond} && (${this.emitExpression(matchCase.guard)})`;
+            }
+            lines.push(`${pad}${prefix} (${cond}) {`);
+            for (const binding of bindings) {
+              lines.push(`${pad}  const ${binding.name} = ${binding.expr};`);
+            }
           }
           if (Array.isArray(matchCase.body)) {
             for (const s of matchCase.body) {

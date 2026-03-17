@@ -1,9 +1,9 @@
 -- FFI (Foreign Function Interface) Example
 -- Use `extern define` to declare functions from external JS/TS modules.
--- The Clarity type checker validates calls against the declared signature,
+-- The Litho type checker validates calls against the declared signature,
 -- and the emitter produces a typed import statement.
 
--- Declare external functions with their Clarity-level type signatures
+-- Declare external functions with their Litho-level type signatures
 extern define readFile(path: Text) -> Text
   from "fs"
 end
@@ -16,13 +16,14 @@ extern async define fetch(url: Text) -> Text
   from "node-fetch"
 end
 
--- Use extern functions just like any Clarity function
+-- Use extern functions just like any Litho function
 define load_config(dir: Text) -> Text as
   path = resolve(dir)
   return readFile(path)
 end
 
-async define fetch_and_read(url: Text, fallback: Text) -> Text as
+-- Default parameter for fallback path
+async define fetch_and_read(url: Text, fallback: Text = "config.json") -> Text as
   result = await fetch(url)
   check result != "" or return readFile(fallback)
   return result

@@ -277,7 +277,7 @@ end`);
   end
 end`);
 
-    expect(output).toContain("&& ((n >= 18))");
+    expect(output).toContain("return (n >= 18)");
     expect(output).toContain("const n = age;");
   });
 

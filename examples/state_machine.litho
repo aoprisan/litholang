@@ -16,6 +16,7 @@ struct Order has
   total: Number
 end
 
+-- Transition uses ok()/err() built-in constructors
 define transition(order: Order, action: Text) -> Result<Order, Text> as
   match (order.status, action) on
     case (Pending, "pay") =>
@@ -34,4 +35,25 @@ define transition(order: Order, action: Text) -> Result<Order, Text> as
     case (current, act) =>
       return err("Cannot {act} from {current}")
   end
+end
+
+-- Pattern guards for classifying order value
+define classify_order(order: Order) -> Text as
+  match order.total on
+    case t where t >= 1000 => return "premium"
+    case t where t >= 100  => return "standard"
+    case t where t > 0     => return "small"
+    case _                 => return "empty"
+  end
+end
+
+-- Default parameters for flexible order creation
+define create_order(id: Text, items: List<Item>, discount: Number = 0) -> Order as
+  raw_total = items |> sum(of .price)
+  return Order(
+    id: id,
+    status: Pending,
+    items: items,
+    total: raw_total - discount
+  )
 end

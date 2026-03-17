@@ -1,0 +1,83 @@
+-- Error Handling & Pattern Guards Example
+-- Demonstrates ok()/err()/some()/none constructors, pattern guards,
+-- exhaustive matching, and default parameters.
+
+enum Priority is
+  Critical
+  High
+  Medium
+  Low
+end
+
+struct Task has
+  id: Text
+  title: Text
+  priority: Priority
+  assignee: Maybe<Text>
+  estimate: Number
+end
+
+-- ok()/err() constructors for Result<T, E>
+define validate_task(title: Text, estimate: Number) -> Result<Task, Text> as
+  check title != "" or return err("Title cannot be empty")
+  check estimate > 0 or return err("Estimate must be positive")
+
+  task = Task(id: generate_id(), title: title, priority: Medium, assignee: none, estimate: estimate)
+  return ok(task)
+end
+
+-- Pattern guards for flexible matching
+define priority_label(p: Priority) -> Text as
+  match p on
+    case Critical => return "CRITICAL"
+    case High     => return "HIGH"
+    case Medium   => return "MEDIUM"
+    case Low      => return "LOW"
+  end
+end
+
+-- Pattern guards with numeric ranges
+define estimate_category(task: Task) -> Text as
+  match task.estimate on
+    case hours where hours >= 40 => return "epic"
+    case hours where hours >= 8  => return "story"
+    case hours where hours >= 1  => return "task"
+    case _                       => return "subtask"
+  end
+end
+
+-- some()/none for Maybe<T>
+define find_assignee(task: Task) -> Text as
+  match task.assignee on
+    case name where name != "" => return name
+    case _ => return "unassigned"
+  end
+end
+
+-- Default parameters
+define create_task(title: Text, estimate: Number = 4) -> Result<Task, Text> as
+  check title != "" or return err("Title is required")
+  task = Task(id: generate_id(), title: title, priority: Medium, assignee: none, estimate: estimate)
+  return ok(task)
+end
+
+-- Composing error handling with ? propagation
+define assign_and_schedule(title: Text, assignee: Text) -> Result<Task, Text> as
+  task = create_task(title)?
+
+  updated = task with assignee: some(assignee)
+
+  check updated.estimate <= 80 or return err("Task estimate exceeds sprint capacity")
+
+  return ok(updated)
+end
+
+-- Exhaustive match ensures all priorities are handled
+define max_concurrent(p: Priority) -> Number as
+  match p on
+    case Critical => return 1
+    case High     => return 3
+    case Medium   => return 5
+    case Low      => return 10
+  end
+end
