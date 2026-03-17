@@ -52,6 +52,21 @@ end
 `);
   });
 
+  it("formats tagged union enum with variant fields", () => {
+    const output = format(`enum Shape is
+  Circle(radius: Number)
+  Rectangle(width: Number, height: Number)
+  Point
+end`);
+
+    expect(output).toBe(`enum Shape is
+  Circle(radius: Number)
+  Rectangle(width: Number, height: Number)
+  Point
+end
+`);
+  });
+
   it("formats annotations", () => {
     const output = format(`@purpose "Test"
 define test() -> Void as
@@ -171,5 +186,37 @@ end
     const formatted = format(source);
     const reformatted = format(formatted);
     expect(reformatted).toBe(formatted);
+  });
+
+  it("formats or-patterns", () => {
+    const output = format(`define test(s: Text) -> Text as
+  match s on
+    case "a" | "b" => "ab"
+    case _ => "other"
+  end
+end`);
+
+    expect(output).toContain('case "a" | "b" => "ab"');
+  });
+
+  it("formats range expressions", () => {
+    const output = format(`define test() -> List<Number> as
+  return 1..10
+end`);
+
+    expect(output).toContain("return 1..10");
+  });
+
+  it("formats repeat-while loops", () => {
+    const output = format(`define test(x: Number) -> Number as
+  repeat while x > 0 do
+    x = x - 1
+  end
+  return x
+end`);
+
+    expect(output).toContain("repeat while x > 0 do");
+    expect(output).toContain("  x = x - 1");
+    expect(output).toContain("end");
   });
 });

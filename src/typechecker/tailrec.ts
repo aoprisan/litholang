@@ -139,6 +139,12 @@ function checkStatementForTailCalls(
       checkExprForTailCalls(stmt.condition, funcName, false, recursiveCalls, tailCalls);
       checkExprForTailCalls(stmt.fallback, funcName, false, recursiveCalls, tailCalls);
       break;
+    case "RepeatStatement":
+      checkExprForTailCalls(stmt.condition, funcName, false, recursiveCalls, tailCalls);
+      for (const s of stmt.body) {
+        checkStmtForTailCalls(s, funcName, false, recursiveCalls, tailCalls);
+      }
+      break;
   }
 }
 
@@ -280,6 +286,11 @@ function checkExprForTailCalls(
     case "IdentifierExpr":
     case "SelfExpr":
     case "ShortDotAccess":
+      break;
+
+    case "RangeExpr":
+      checkExprForTailCalls(expr.start, funcName, false, recursiveCalls, tailCalls);
+      checkExprForTailCalls(expr.end, funcName, false, recursiveCalls, tailCalls);
       break;
   }
 }

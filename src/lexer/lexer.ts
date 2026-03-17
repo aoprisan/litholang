@@ -108,6 +108,12 @@ export class Lexer {
         continue;
       }
 
+      if (ch === "|") {
+        this.addToken(TokenKind.Bar, "|");
+        this.advance();
+        continue;
+      }
+
       if (ch === "-" && this.peek(1) === ">") {
         this.addToken(TokenKind.Arrow, "->");
         this.advance();
@@ -145,6 +151,13 @@ export class Lexer {
 
       if (ch === ">" && this.peek(1) === "=") {
         this.addToken(TokenKind.GreaterOrEqual, ">=");
+        this.advance();
+        this.advance();
+        continue;
+      }
+
+      if (ch === "." && this.peek(1) === ".") {
+        this.addToken(TokenKind.DotDot, "..");
         this.advance();
         this.advance();
         continue;

@@ -303,6 +303,12 @@ export class TypeChecker {
         this.inferExpression(stmt.expr, scope);
         break;
       }
+
+      case "RepeatStatement": {
+        this.inferExpression(stmt.condition, scope);
+        for (const s of stmt.body) this.checkStatement(s, scope, declaredReturn, functionName);
+        break;
+      }
     }
   }
 
@@ -590,6 +596,12 @@ export class TypeChecker {
         }
         return { kind: "unknown" };
       }
+
+      case "RangeExpr": {
+        this.inferExpression(expr.start, scope);
+        this.inferExpression(expr.end, scope);
+        return { kind: "list", element: { kind: "number" } };
+      }
     }
   }
 
@@ -675,7 +687,7 @@ export class TypeChecker {
 
         const enumDef = this.enums.get(type.name);
         if (enumDef) {
-          return { kind: "enum", name: enumDef.name, variants: enumDef.variants };
+          return { kind: "enum", name: enumDef.name, variants: enumDef.variants.map(v => v.name) };
         }
 
         return { kind: "named", name: type.name };

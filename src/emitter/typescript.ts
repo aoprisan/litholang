@@ -225,6 +225,10 @@ export class TypeScriptEmitter {
           this.collectIdsFromExpr(stmt.condition, ids);
           this.collectIdsFromExpr(stmt.fallback, ids);
           break;
+        case "RepeatStatement":
+          this.collectIdsFromExpr(stmt.condition, ids);
+          this.collectIdsFromBody(stmt.body, ids);
+          break;
       }
     }
   }
@@ -270,6 +274,11 @@ export class TypeScriptEmitter {
       case "AllExpr":
         for (const e of expr.exprs) this.collectIdsFromExpr(e, ids);
         break;
+      case "RangeExpr":
+        ids.add("range");
+        this.collectIdsFromExpr(expr.start, ids);
+        this.collectIdsFromExpr(expr.end, ids);
+        break;
       default: break;
     }
   }
@@ -309,12 +318,51 @@ export class TypeScriptEmitter {
   }
 
   emitEnumDef(enumDef: EnumDef, exported = false): string {
-    const lines: string[] = [];
-    lines.push(`${this.exportPrefix(exported)}enum ${enumDef.name} {`);
-    for (const variant of enumDef.variants) {
-      lines.push(`  ${variant},`);
+    const hasData = enumDef.variants.some(v => v.fields.length > 0);
+
+    if (!hasData) {
+      // Simple enum — emit as TypeScript enum
+      const lines: string[] = [];
+      lines.push(`${this.exportPrefix(exported)}enum ${enumDef.name} {`);
+      for (const variant of enumDef.variants) {
+        lines.push(`  ${variant.name},`);
+      }
+      lines.push("}");
+      return lines.join("\n");
     }
-    lines.push("}");
+
+    // Tagged union — emit as discriminated union type + constructor functions
+    const lines: string[] = [];
+
+    // Type for each variant
+    const variantTypes: string[] = [];
+    for (const variant of enumDef.variants) {
+      if (variant.fields.length === 0) {
+        variantTypes.push(`{ kind: "${variant.name}" }`);
+      } else {
+        const fields = variant.fields
+          .map(f => `${f.name}: ${this.emitType(f.type)}`)
+          .join("; ");
+        variantTypes.push(`{ kind: "${variant.name}"; ${fields} }`);
+      }
+    }
+    lines.push(`${this.exportPrefix(exported)}type ${enumDef.name} = ${variantTypes.join(" | ")};`);
+
+    // Constructor function for each variant
+    for (const variant of enumDef.variants) {
+      if (variant.fields.length === 0) {
+        lines.push(`function ${variant.name}(): ${enumDef.name} { return { kind: "${variant.name}" }; }`);
+      } else {
+        const params = variant.fields
+          .map(f => `${f.name}: ${this.emitType(f.type)}`)
+          .join(", ");
+        const obj = variant.fields
+          .map(f => f.name)
+          .join(", ");
+        lines.push(`function ${variant.name}(${params}): ${enumDef.name} { return { kind: "${variant.name}", ${obj} }; }`);
+      }
+    }
+
     return lines.join("\n");
   }
 
@@ -630,6 +678,16 @@ export class TypeScriptEmitter {
 
       case "CheckStatement":
         return `${pad}if (!(${this.emitExpression(stmt.condition)})) return ${this.emitExpression(stmt.fallback)};`;
+
+      case "RepeatStatement": {
+        const lines: string[] = [];
+        lines.push(`${pad}while (${this.emitExpression(stmt.condition)}) {`);
+        for (const s of stmt.body) {
+          lines.push(this.emitStatement(s, indent + 2));
+        }
+        lines.push(`${pad}}`);
+        return lines.join("\n");
+      }
     }
   }
 
@@ -751,6 +809,9 @@ export class TypeScriptEmitter {
         const exprs = expr.exprs.map((e) => this.emitExpression(e)).join(", ");
         return `await Promise.all([${exprs}])`;
       }
+
+      case "RangeExpr":
+        return `range(${this.emitExpression(expr.start)}, ${this.emitExpression(expr.end)})`;
     }
   }
 
@@ -767,12 +828,23 @@ export class TypeScriptEmitter {
         return "true"; // binding pattern, always matches
       case "WildcardPattern":
         return "true";
-      case "ConstructorPattern":
-        return `${subject}.kind === ${JSON.stringify(pattern.name)}`;
+      case "ConstructorPattern": {
+        const cond = `${subject}.kind === ${JSON.stringify(pattern.name)}`;
+        if (pattern.inner) {
+          const innerCond = this.emitPatternCondition(pattern.inner, subject, bindings);
+          if (innerCond === "true") return cond;
+          return `${cond} && ${innerCond}`;
+        }
+        return cond;
+      }
       case "TuplePattern":
         return pattern.elements
           .map((el, i) => this.emitPatternCondition(el, `${subject}[${i}]`, bindings))
           .join(" && ");
+      case "OrPattern":
+        return "(" + pattern.patterns
+          .map(p => this.emitPatternCondition(p, subject, bindings))
+          .join(" || ") + ")";
     }
   }
 

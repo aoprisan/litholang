@@ -1,0 +1,33 @@
+enum Shape is
+  Circle(radius: Number)
+  Rectangle(width: Number, height: Number)
+  Point
+end
+
+define area(s: Shape) -> Number as
+  match s on
+    case Circle(r) => r * r * 3.14159
+    case Rectangle(dims) => dims
+    case Point => 0
+  end
+end
+
+define classify_status(status: Text) -> Text as
+  match status on
+    case "active" | "pending" => "open"
+    case "closed" | "archived" => "done"
+    case _ => "unknown"
+  end
+end
+
+define first_ten() -> List<Number> as
+  return 1..10
+end
+
+define countdown(n: Number) -> Number as
+  result = n
+  repeat while result > 0 do
+    result = result - 1
+  end
+  return result
+end

@@ -158,4 +158,27 @@ c`;
     const ofTokens = tokens.filter((t) => t.kind === TokenKind.Of);
     expect(ofTokens).toHaveLength(1);
   });
+
+  it("tokenizes dot-dot range operator", () => {
+    const lexer = new Lexer("1..10");
+    const tokens = lexer.tokenize();
+    const kinds = tokens.map((t) => t.kind);
+    expect(kinds).toContain(TokenKind.NumberLiteral);
+    expect(kinds).toContain(TokenKind.DotDot);
+  });
+
+  it("tokenizes bar operator for or-patterns", () => {
+    const lexer = new Lexer('"a" | "b"');
+    const tokens = lexer.tokenize();
+    const kinds = tokens.map((t) => t.kind);
+    expect(kinds).toContain(TokenKind.Bar);
+  });
+
+  it("tokenizes repeat and while keywords", () => {
+    const lexer = new Lexer("repeat while x do end");
+    const tokens = lexer.tokenize();
+    const kinds = tokens.map((t) => t.kind);
+    expect(kinds).toContain(TokenKind.Repeat);
+    expect(kinds).toContain(TokenKind.While);
+  });
 });

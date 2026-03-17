@@ -47,6 +47,39 @@ end`);
     expect(output).toContain("Blue,");
   });
 
+  it("emits tagged union enum as discriminated union", () => {
+    const output = compileToTS(`enum Shape is
+  Circle(radius: Number)
+  Rectangle(width: Number, height: Number)
+  Point
+end`);
+
+    expect(output).toContain("type Shape =");
+    expect(output).toContain('{ kind: "Circle"; radius: number }');
+    expect(output).toContain('{ kind: "Rectangle"; width: number; height: number }');
+    expect(output).toContain('{ kind: "Point" }');
+    expect(output).toContain("function Circle(radius: number): Shape");
+    expect(output).toContain("function Rectangle(width: number, height: number): Shape");
+    expect(output).toContain("function Point(): Shape");
+  });
+
+  it("emits match on tagged union with constructor patterns", () => {
+    const output = compileToTS(`enum Shape is
+  Circle(radius: Number)
+  Rectangle(width: Number, height: Number)
+end
+
+define area(s: Shape) -> Number as
+  match s on
+    case Circle(r) => r
+    case Rectangle(dims) => dims
+  end
+end`);
+
+    expect(output).toContain('s.kind === "Circle"');
+    expect(output).toContain('s.kind === "Rectangle"');
+  });
+
   it("emits import declaration", () => {
     const output = compileToTS(`import foo, bar from "my-module"`);
 
@@ -408,5 +441,40 @@ define test() -> Void as
 end`);
 
     expect(output).not.toContain("// --- Litholang Prelude ---");
+  });
+
+  it("emits or-patterns as || conditions", () => {
+    const output = compileToTS(`define classify(s: Text) -> Text as
+  match s on
+    case "active" | "pending" => "open"
+    case "closed" | "archived" => "done"
+    case _ => "unknown"
+  end
+end`);
+
+    expect(output).toContain('s === "active" || s === "pending"');
+    expect(output).toContain('s === "closed" || s === "archived"');
+  });
+
+  it("emits range expressions as range() calls", () => {
+    const output = compileToTS(`define test() -> List<Number> as
+  return 1..10
+end`);
+
+    expect(output).toContain("range(1, 10)");
+    // Should auto-inject prelude since range is used
+    expect(output).toContain("Litholang Prelude");
+  });
+
+  it("emits repeat-while as while loop", () => {
+    const output = compileToTS(`define countdown(n: Number) -> Number as
+  repeat while n > 0 do
+    n = n - 1
+  end
+  return n
+end`);
+
+    expect(output).toContain("while ((n > 0))");
+    expect(output).toContain("n = (n - 1);");
   });
 });

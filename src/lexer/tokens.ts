@@ -45,6 +45,8 @@ export enum TokenKind {
   Extern = "extern",
   Of = "of",
   By = "by",
+  Repeat = "repeat",
+  While = "while",
 
   // Operators
   Pipe = "|>",
@@ -66,6 +68,8 @@ export enum TokenKind {
   Star = "*",
   Slash = "/",
   Percent = "%",
+  DotDot = "..",
+  Bar = "|",
 
   // Delimiters
   LeftParen = "(",
@@ -120,6 +124,8 @@ export const KEYWORDS: Record<string, TokenKind> = {
   extern: TokenKind.Extern,
   of: TokenKind.Of,
   by: TokenKind.By,
+  repeat: TokenKind.Repeat,
+  while: TokenKind.While,
   true: TokenKind.BooleanLiteral,
   false: TokenKind.BooleanLiteral,
 };
