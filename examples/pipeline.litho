@@ -1,27 +1,22 @@
 @purpose "Process daily sales and generate report"
 
+struct Report has
+  date: Date
+  total_revenue: Number
+  transaction_count: Number
+  by_category: List<Text>
+  generated_at: Timestamp
+end
+
 define daily_report(date: Date) -> Result<Report, Error> as
-  transactions = db.sales
-    |> filter(where .date == date)
-    |> filter(where .status == "completed")
-    |> collect
+  completed = db.sales |> filter(each s => s.date == date) |> collect
 
-  summary = transactions
-    |> group(by .category)
-    |> map(each group =>
-        category: group.key,
-        total: group.values |> sum(of .amount),
-        count: group.values.length
-      )
-    |> sort(by .total, descending)
+  by_category = completed |> group(each s => s.category)
 
-  report = Report(
-    date: date,
-    total_revenue: transactions |> sum(of .amount),
-    transaction_count: transactions.length,
-    by_category: summary,
-    generated_at: now()
-  )
+  total_revenue = completed |> sum(each s => s.amount)
+  count = completed.length
+
+  report = Report(date: date, total_revenue: total_revenue, transaction_count: count, by_category: by_category, generated_at: now())
 
   return ok(report)
 end

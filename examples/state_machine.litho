@@ -9,6 +9,11 @@ enum OrderStatus is
   Cancelled
 end
 
+struct Item has
+  name: Text
+  price: Number
+end
+
 struct Order has
   id: Text
   status: OrderStatus
@@ -16,24 +21,24 @@ struct Order has
   total: Number
 end
 
--- Transition uses ok()/err() built-in constructors
+-- Transition using match on status with guards
 define transition(order: Order, action: Text) -> Result<Order, Text> as
-  match (order.status, action) on
-    case (Pending, "pay") =>
+  match order.status on
+    case Pending where action == "pay" =>
       return ok(order with status: Paid)
 
-    case (Paid, "ship") =>
+    case Paid where action == "ship" =>
       tracking = generate_tracking()
-      return ok(order with status: Shipped, tracking: tracking)
+      return ok(order with status: Shipped)
 
-    case (Shipped, "deliver") =>
+    case Shipped where action == "deliver" =>
       return ok(order with status: Delivered)
 
-    case (Pending, "cancel") =>
+    case Pending where action == "cancel" =>
       return ok(order with status: Cancelled)
 
-    case (current, act) =>
-      return err("Cannot {act} from {current}")
+    case _ =>
+      return err("Cannot perform action from current status")
   end
 end
 
@@ -50,10 +55,6 @@ end
 -- Default parameters for flexible order creation
 define create_order(id: Text, items: List<Item>, discount: Number = 0) -> Order as
   raw_total = items |> sum(of .price)
-  return Order(
-    id: id,
-    status: Pending,
-    items: items,
-    total: raw_total - discount
-  )
+  final_total = raw_total - discount
+  return Order(id: id, status: Pending, items: items, total: final_total)
 end
