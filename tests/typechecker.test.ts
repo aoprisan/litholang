@@ -519,3 +519,162 @@ end`);
     expect(output).not.toContain("__propagateResult");
   });
 });
+
+describe("pipeline type inference", () => {
+  it("infers filter preserves list type through pipeline", () => {
+    const errors = check(`define test(items: List<Number>) -> List<Number> as
+  return items |> filter(each x => x > 0)
+end`);
+    expect(errors).toEqual([]);
+  });
+
+  it("detects type mismatch when pipeline result differs from return type", () => {
+    const errors = check(`define test(items: List<Number>) -> Text as
+  return items |> filter(each x => x > 0)
+end`);
+    expect(errors.length).toBe(1);
+    expect(errors[0].message).toContain("Return type mismatch");
+  });
+
+  it("infers count returns Number", () => {
+    const errors = check(`define test(items: List<Number>) -> Number as
+  return items |> count()
+end`);
+    expect(errors).toEqual([]);
+  });
+
+  it("detects mismatch when count result used as Text", () => {
+    const errors = check(`define test(items: List<Number>) -> Text as
+  return items |> count()
+end`);
+    expect(errors.length).toBe(1);
+    expect(errors[0].message).toContain("Return type mismatch");
+  });
+
+  it("infers sum returns Number", () => {
+    const errors = check(`define test(items: List<Number>) -> Number as
+  return items |> sum()
+end`);
+    expect(errors).toEqual([]);
+  });
+
+  it("infers find returns Maybe", () => {
+    const errors = check(`define test(items: List<Number>) -> Maybe<Number> as
+  return items |> find(each x => x > 10)
+end`);
+    expect(errors).toEqual([]);
+  });
+
+  it("infers multi-step pipeline: filter then count", () => {
+    const errors = check(`define test(items: List<Number>) -> Number as
+  return items |> filter(each x => x > 0) |> count()
+end`);
+    expect(errors).toEqual([]);
+  });
+
+  it("infers join returns Text", () => {
+    const errors = check(`define test(items: List<Text>) -> Text as
+  return items |> join(", ")
+end`);
+    expect(errors).toEqual([]);
+  });
+
+  it("infers any_of returns Boolean", () => {
+    const errors = check(`define test(items: List<Number>) -> Boolean as
+  return items |> any_of(each x => x > 0)
+end`);
+    expect(errors).toEqual([]);
+  });
+
+  it("infers user-defined pipeline function return type", () => {
+    const errors = check(`define double_all(items: List<Number>) -> List<Number> as
+  return items
+end
+
+define test(items: List<Number>) -> List<Number> as
+  return items |> double_all()
+end`);
+    expect(errors).toEqual([]);
+  });
+
+  it("detects mismatch with user-defined pipeline function", () => {
+    const errors = check(`define double_all(items: List<Number>) -> List<Number> as
+  return items
+end
+
+define test(items: List<Number>) -> Text as
+  return items |> double_all()
+end`);
+    expect(errors.length).toBe(1);
+    expect(errors[0].message).toContain("Return type mismatch");
+  });
+
+  it("infers sort preserves list type", () => {
+    const errors = check(`define test(items: List<Number>) -> List<Number> as
+  return items |> sort()
+end`);
+    expect(errors).toEqual([]);
+  });
+
+  it("infers take preserves list type", () => {
+    const errors = check(`define test(items: List<Number>) -> List<Number> as
+  return items |> take(5)
+end`);
+    expect(errors).toEqual([]);
+  });
+
+  it("infers first returns Maybe", () => {
+    const errors = check(`define test(items: List<Text>) -> Maybe<Text> as
+  return items |> first()
+end`);
+    expect(errors).toEqual([]);
+  });
+
+  it("infers reverse preserves list type", () => {
+    const errors = check(`define test(items: List<Number>) -> List<Number> as
+  return items |> reverse()
+end`);
+    expect(errors).toEqual([]);
+  });
+
+  it("infers split returns List<Text>", () => {
+    const errors = check(`define test(s: Text) -> List<Text> as
+  return s |> split(",")
+end`);
+    expect(errors).toEqual([]);
+  });
+
+  it("infers long pipeline: filter -> sort -> take -> count", () => {
+    const errors = check(`define test(items: List<Number>) -> Number as
+  return items |> filter(each x => x > 0) |> sort() |> take(10) |> count()
+end`);
+    expect(errors).toEqual([]);
+  });
+
+  it("infers pipeline result assigned to variable", () => {
+    const errors = check(`define test(items: List<Number>) -> Number as
+  total = items |> count()
+  return total
+end`);
+    expect(errors).toEqual([]);
+  });
+
+  it("detects mismatch on pipeline assigned to variable then returned", () => {
+    const errors = check(`define test(items: List<Number>) -> Text as
+  total = items |> count()
+  return total
+end`);
+    expect(errors.length).toBe(1);
+    expect(errors[0].message).toContain("Return type mismatch");
+  });
+
+  it("infers group returns Map type", () => {
+    const errors = check(`define test(items: List<Number>) -> Void as
+  grouped = items |> group(each x => x)
+  return grouped
+end`);
+    // grouped is Map<unknown, List<Number>> — not Void
+    expect(errors.length).toBe(1);
+    expect(errors[0].message).toContain("Return type mismatch");
+  });
+});

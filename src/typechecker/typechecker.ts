@@ -514,14 +514,15 @@ export class TypeChecker {
       }
 
       case "PipelineExpr": {
-        this.inferExpression(expr.source, scope);
+        let currentType = this.inferExpression(expr.source, scope);
         for (const step of expr.steps) {
           this.inferExpression(step.callee, scope);
           for (const arg of step.args) {
             this.inferExpression(arg.value, scope);
           }
+          currentType = this.inferPipelineStep(currentType, step, scope);
         }
-        return { kind: "unknown" };
+        return currentType;
       }
 
       case "LambdaExpr": {
@@ -816,6 +817,20 @@ export class TypeChecker {
       return source.kind === "primitive" && source.name === "Void";
     }
 
+    // If both types are concrete but different kinds, check for known incompatibilities.
+    // We only reject clear mismatches to avoid false positives with Result/Maybe wrapping.
+    if (source.kind !== target.kind) {
+      // A list is never a primitive and vice versa
+      if (source.kind === "list" && target.kind === "primitive") return false;
+      if (source.kind === "primitive" && target.kind === "list") return false;
+      // A map is never a primitive and vice versa
+      if (source.kind === "map" && target.kind === "primitive") return false;
+      if (source.kind === "primitive" && target.kind === "map") return false;
+      // A list is never a map and vice versa
+      if (source.kind === "list" && target.kind === "map") return false;
+      if (source.kind === "map" && target.kind === "list") return false;
+    }
+
     return true; // default: don't block on uncertain types
   }
 
@@ -882,6 +897,179 @@ export class TypeChecker {
         stmt.position,
       );
     }
+  }
+
+  /**
+   * Infer the output type of a single pipeline step given the input type.
+   * In a pipeline `a |> f(b)`, the source `a` is passed as the first argument
+   * to `f`, so we resolve the return type based on knowledge of built-in
+   * collection/prelude functions and user-defined functions.
+   */
+  private inferPipelineStep(
+    inputType: LithoType,
+    step: import("../parser/ast.js").PipelineStep,
+    scope: Scope,
+  ): LithoType {
+    const calleeName =
+      step.callee.kind === "IdentifierExpr" ? step.callee.name : null;
+
+    if (!calleeName) return { kind: "unknown" };
+
+    // Extract the element type from a list input (used by most collection fns)
+    const elementType: LithoType =
+      inputType.kind === "list" ? inputType.element : { kind: "unknown" };
+
+    // Built-in collection functions that preserve the element type
+    const preservesList = new Set([
+      "filter", "take", "skip", "sort", "reverse", "unique", "collect",
+    ]);
+    if (preservesList.has(calleeName)) {
+      if (inputType.kind === "list") {
+        return inputType;
+      }
+      return { kind: "list", element: { kind: "unknown" } };
+    }
+
+    // map: List<T> -> List<U> where U is the lambda return type
+    if (calleeName === "map") {
+      if (step.args.length >= 1) {
+        const lambdaArg = step.args[0].value;
+        if (lambdaArg.kind === "LambdaExpr") {
+          const lambdaScope = createScope(scope);
+          // Bind lambda param to element type if available
+          for (const param of lambdaArg.params) {
+            const paramType = this.resolveTypeNode(param.type);
+            lambdaScope.variables.set(
+              param.name,
+              paramType.kind === "unknown" ? elementType : paramType,
+            );
+          }
+          const bodyType = this.inferExpression(lambdaArg.body, lambdaScope);
+          return { kind: "list", element: bodyType };
+        }
+      }
+      return { kind: "list", element: { kind: "unknown" } };
+    }
+
+    // flat_map: List<T> -> List<U> (flattened)
+    if (calleeName === "flat_map") {
+      if (step.args.length >= 1) {
+        const lambdaArg = step.args[0].value;
+        if (lambdaArg.kind === "LambdaExpr") {
+          const lambdaScope = createScope(scope);
+          for (const param of lambdaArg.params) {
+            const paramType = this.resolveTypeNode(param.type);
+            lambdaScope.variables.set(
+              param.name,
+              paramType.kind === "unknown" ? elementType : paramType,
+            );
+          }
+          const bodyType = this.inferExpression(lambdaArg.body, lambdaScope);
+          // flat_map unwraps one level of list
+          if (bodyType.kind === "list") {
+            return bodyType;
+          }
+          return { kind: "list", element: bodyType };
+        }
+      }
+      return { kind: "list", element: { kind: "unknown" } };
+    }
+
+    // reduce: List<T> -> U (type of initial value)
+    if (calleeName === "reduce") {
+      // reduce(fn, initial) — initial is the second extra arg (index 1)
+      if (step.args.length >= 2) {
+        return this.inferExpression(step.args[1].value, scope);
+      }
+      return { kind: "unknown" };
+    }
+
+    // find, first, last: List<T> -> Maybe<T>
+    if (calleeName === "find" || calleeName === "first" || calleeName === "last") {
+      return { kind: "maybe", inner: elementType };
+    }
+
+    // count, length: List<T> -> Number
+    if (calleeName === "count" || calleeName === "length") {
+      return { kind: "primitive", name: "Number" };
+    }
+
+    // sum: List<Number> -> Number
+    if (calleeName === "sum") {
+      return { kind: "primitive", name: "Number" };
+    }
+
+    // min, max: List<Number> -> Maybe<Number>, or List<T> -> Maybe<T>
+    if (calleeName === "min" || calleeName === "max") {
+      return { kind: "maybe", inner: elementType };
+    }
+
+    // any_of, all_of, none_of: List<T> -> Boolean
+    if (calleeName === "any_of" || calleeName === "all_of" || calleeName === "none_of") {
+      return { kind: "primitive", name: "Boolean" };
+    }
+
+    // enumerate: List<T> -> List<(Number, T)> (modeled as unknown tuple for now)
+    if (calleeName === "enumerate") {
+      return { kind: "list", element: { kind: "unknown" } };
+    }
+
+    // zip: List<T> -> List<(T, U)>
+    if (calleeName === "zip") {
+      return { kind: "list", element: { kind: "unknown" } };
+    }
+
+    // group: List<T> -> Map<K, List<T>>
+    if (calleeName === "group") {
+      return { kind: "map", key: { kind: "unknown" }, value: { kind: "list", element: elementType } };
+    }
+
+    // join: List<Text> -> Text
+    if (calleeName === "join") {
+      return { kind: "primitive", name: "Text" };
+    }
+
+    // String functions that return Text
+    const textToText = new Set([
+      "trim", "to_upper", "to_lower", "replace_text",
+    ]);
+    if (textToText.has(calleeName)) {
+      return { kind: "primitive", name: "Text" };
+    }
+
+    // String functions that return Boolean
+    if (calleeName === "starts_with" || calleeName === "ends_with") {
+      return { kind: "primitive", name: "Boolean" };
+    }
+
+    // split: Text -> List<Text>
+    if (calleeName === "split") {
+      return { kind: "list", element: { kind: "primitive", name: "Text" } };
+    }
+
+    // to_text: any -> Text
+    if (calleeName === "to_text") {
+      return { kind: "primitive", name: "Text" };
+    }
+
+    // to_number: any -> Number
+    if (calleeName === "to_number") {
+      return { kind: "primitive", name: "Number" };
+    }
+
+    // print: any -> Void
+    if (calleeName === "print") {
+      return { kind: "primitive", name: "Void" };
+    }
+
+    // User-defined functions: look up return type
+    // In a pipeline, the piped value is the first arg, so arg count is step.args.length + 1
+    const func = this.functions.get(calleeName);
+    if (func && func.returnType) {
+      return this.resolveTypeNode(func.returnType);
+    }
+
+    return { kind: "unknown" };
   }
 
   private addError(message: string, position: Position): void {
