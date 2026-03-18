@@ -219,4 +219,20 @@ end`);
     expect(output).toContain("  x = x - 1");
     expect(output).toContain("end");
   });
+
+  it("formats basic comprehension", () => {
+    const output = format(`define test(items: List<Number>) -> List<Number> as
+  return for x in items collect x * 2 end
+end`);
+
+    expect(output).toContain("for x in items collect x * 2 end");
+  });
+
+  it("formats comprehension with where clause", () => {
+    const output = format(`define test(items: List<Number>) -> List<Number> as
+  return for x in items where x > 0 collect x * 2 end
+end`);
+
+    expect(output).toContain("for x in items where x > 0 collect x * 2 end");
+  });
 });

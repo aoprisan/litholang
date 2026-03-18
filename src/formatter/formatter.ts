@@ -376,6 +376,16 @@ export class Formatter {
 
       case "RangeExpr":
         return `${this.formatExpression(expr.start)}..${this.formatExpression(expr.end)}`;
+
+      case "ComprehensionExpr": {
+        const iterable = this.formatExpression(expr.iterable);
+        const body = this.formatExpression(expr.body);
+        if (expr.filter) {
+          const filter = this.formatExpression(expr.filter);
+          return `for ${expr.variable} in ${iterable} where ${filter} collect ${body} end`;
+        }
+        return `for ${expr.variable} in ${iterable} collect ${body} end`;
+      }
     }
   }
 

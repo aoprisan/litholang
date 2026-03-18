@@ -678,3 +678,35 @@ end`);
     expect(errors[0].message).toContain("Return type mismatch");
   });
 });
+
+describe("comprehension type inference", () => {
+  it("infers comprehension returns List", () => {
+    const errors = check(`define test(items: List<Number>) -> List<Number> as
+  return for x in items collect x * 2 end
+end`);
+    expect(errors).toEqual([]);
+  });
+
+  it("detects mismatch when comprehension body type differs from return type", () => {
+    const errors = check(`define test(items: List<Number>) -> List<Text> as
+  return for x in items collect x * 2 end
+end`);
+    expect(errors.length).toBe(1);
+    expect(errors[0].message).toContain("Return type mismatch");
+  });
+
+  it("infers comprehension with where filter preserves element type check", () => {
+    const errors = check(`define test(items: List<Number>) -> List<Number> as
+  return for x in items where x > 0 collect x end
+end`);
+    expect(errors).toEqual([]);
+  });
+
+  it("detects list-vs-primitive mismatch on comprehension result", () => {
+    const errors = check(`define test(items: List<Number>) -> Number as
+  return for x in items collect x end
+end`);
+    expect(errors.length).toBe(1);
+    expect(errors[0].message).toContain("Return type mismatch");
+  });
+});

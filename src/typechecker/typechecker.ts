@@ -534,6 +534,23 @@ export class TypeChecker {
         return { kind: "unknown" };
       }
 
+      case "ComprehensionExpr": {
+        const iterableType = this.inferExpression(expr.iterable, scope);
+        const elementType: LithoType =
+          iterableType.kind === "list" ? iterableType.element : { kind: "unknown" };
+
+        // Create scope with loop variable bound to element type
+        const compScope = createScope(scope);
+        compScope.variables.set(expr.variable, elementType);
+
+        if (expr.filter) {
+          this.inferExpression(expr.filter, compScope);
+        }
+
+        const bodyType = this.inferExpression(expr.body, compScope);
+        return { kind: "list", element: bodyType };
+      }
+
       case "PropagateExpr": {
         const innerType = this.inferExpression(expr.expr, scope);
         // ? only valid on Result<T,E> or Maybe<T>

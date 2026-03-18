@@ -180,6 +180,15 @@ export interface RangeExpr {
   position: Position;
 }
 
+export interface ComprehensionExpr {
+  kind: "ComprehensionExpr";
+  variable: string;
+  iterable: Expression;
+  filter?: Expression;
+  body: Expression;
+  position: Position;
+}
+
 export type Expression =
   | NumberLiteral
   | TextLiteral
@@ -200,7 +209,8 @@ export type Expression =
   | AwaitExpr
   | AllExpr
   | TupleExpr
-  | RangeExpr;
+  | RangeExpr
+  | ComprehensionExpr;
 
 // ─── Statement Nodes ───
 

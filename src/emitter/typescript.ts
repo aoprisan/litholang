@@ -286,6 +286,11 @@ export class TypeScriptEmitter {
         this.collectIdsFromExpr(expr.start, ids);
         this.collectIdsFromExpr(expr.end, ids);
         break;
+      case "ComprehensionExpr":
+        this.collectIdsFromExpr(expr.iterable, ids);
+        if (expr.filter) this.collectIdsFromExpr(expr.filter, ids);
+        this.collectIdsFromExpr(expr.body, ids);
+        break;
       default: break;
     }
   }
@@ -366,11 +371,25 @@ export class TypeScriptEmitter {
 
   emitImportDecl(decl: ImportDecl): string {
     const names = decl.names.join(", ");
-    return `import { ${names} } from "${decl.source}";`;
+    const source = this.resolveImportPath(decl.source);
+    return `import { ${names} } from "${source}";`;
   }
 
   emitExternDef(decl: ExternDef): string {
-    return `import { ${decl.name} } from "${decl.source}";`;
+    const source = this.resolveImportPath(decl.source);
+    return `import { ${decl.name} } from "${source}";`;
+  }
+
+  /**
+   * For relative imports (starting with ./ or ../), append .js extension
+   * so TypeScript ESM resolution works correctly.
+   */
+  private resolveImportPath(source: string): string {
+    if ((source.startsWith("./") || source.startsWith("../")) &&
+        !source.endsWith(".js") && !source.endsWith(".ts")) {
+      return `${source}.js`;
+    }
+    return source;
   }
 
   private emitFunction(func: FunctionDef, isTailRecOptimized: boolean, exported = false): string {
@@ -482,6 +501,10 @@ export class TypeScriptEmitter {
       case "ListLiteral":
       case "TupleExpr":
         return expr.elements.some(e => this.exprUsesPropagation(e));
+      case "ComprehensionExpr":
+        return this.exprUsesPropagation(expr.iterable) ||
+          (expr.filter ? this.exprUsesPropagation(expr.filter) : false) ||
+          this.exprUsesPropagation(expr.body);
       default:
         return false;
     }
@@ -832,6 +855,16 @@ export class TypeScriptEmitter {
 
       case "RangeExpr":
         return `range(${this.emitExpression(expr.start)}, ${this.emitExpression(expr.end)})`;
+
+      case "ComprehensionExpr": {
+        const iterable = this.emitExpression(expr.iterable);
+        const body = this.emitExpression(expr.body);
+        if (expr.filter) {
+          const filter = this.emitExpression(expr.filter);
+          return `${iterable}.filter((${expr.variable}) => ${filter}).map((${expr.variable}) => ${body})`;
+        }
+        return `${iterable}.map((${expr.variable}) => ${body})`;
+      }
     }
   }
 

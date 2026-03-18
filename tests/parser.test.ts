@@ -719,3 +719,54 @@ end`);
     }
   });
 });
+
+describe("comprehension expressions", () => {
+  it("parses basic comprehension", () => {
+    const ast = parse(`define test(items: List<Number>) -> List<Number> as
+  return for x in items collect x * 2 end
+end`);
+
+    const func = ast.declarations[0];
+    if (func.kind === "FunctionDef") {
+      const ret = func.body[0];
+      if (ret.kind === "ReturnStatement") {
+        expect(ret.value.kind).toBe("ComprehensionExpr");
+        if (ret.value.kind === "ComprehensionExpr") {
+          expect(ret.value.variable).toBe("x");
+          expect(ret.value.filter).toBeUndefined();
+        }
+      }
+    }
+  });
+
+  it("parses comprehension with where filter", () => {
+    const ast = parse(`define test(items: List<Number>) -> List<Number> as
+  return for x in items where x > 0 collect x * 2 end
+end`);
+
+    const func = ast.declarations[0];
+    if (func.kind === "FunctionDef") {
+      const ret = func.body[0];
+      if (ret.kind === "ReturnStatement" && ret.value.kind === "ComprehensionExpr") {
+        expect(ret.value.variable).toBe("x");
+        expect(ret.value.filter).toBeDefined();
+        expect(ret.value.filter!.kind).toBe("BinaryExpr");
+      }
+    }
+  });
+
+  it("parses comprehension assigned to variable", () => {
+    const ast = parse(`define test(items: List<Number>) -> List<Number> as
+  doubled = for x in items collect x * 2 end
+  return doubled
+end`);
+
+    const func = ast.declarations[0];
+    if (func.kind === "FunctionDef") {
+      const assign = func.body[0];
+      if (assign.kind === "Assignment") {
+        expect(assign.value.kind).toBe("ComprehensionExpr");
+      }
+    }
+  });
+});

@@ -576,3 +576,46 @@ end`);
     expect(output).toContain("u.name");
   });
 });
+
+describe("comprehension emission", () => {
+  it("emits basic comprehension as .map()", () => {
+    const output = compileToTS(`define test(items: List<Number>) -> List<Number> as
+  return for x in items collect x * 2 end
+end`);
+
+    expect(output).toContain("items.map((x) => (x * 2))");
+  });
+
+  it("emits comprehension with where as .filter().map()", () => {
+    const output = compileToTS(`define test(items: List<Number>) -> List<Number> as
+  return for x in items where x > 0 collect x * 2 end
+end`);
+
+    expect(output).toContain(".filter((x) => (x > 0))");
+    expect(output).toContain(".map((x) => (x * 2))");
+  });
+});
+
+describe("relative import emission", () => {
+  it("adds .js extension to relative imports", () => {
+    const output = compileToTS(`import greet from "./utils"`);
+    expect(output).toContain('from "./utils.js"');
+  });
+
+  it("adds .js extension to parent-relative imports", () => {
+    const output = compileToTS(`import helper from "../lib/helpers"`);
+    expect(output).toContain('from "../lib/helpers.js"');
+  });
+
+  it("does not add .js to package imports", () => {
+    const output = compileToTS(`import Hash from "crypto"`);
+    expect(output).toContain('from "crypto"');
+    expect(output).not.toContain('from "crypto.js"');
+  });
+
+  it("does not double-add .js if already present", () => {
+    const output = compileToTS(`import foo from "./bar.js"`);
+    expect(output).toContain('from "./bar.js"');
+    expect(output).not.toContain('from "./bar.js.js"');
+  });
+});

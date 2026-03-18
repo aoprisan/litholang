@@ -1271,6 +1271,41 @@ export class Parser {
       };
     }
 
+    // Comprehension: for x in items collect expr end
+    // or: for x in items where cond collect expr end
+    if (token.kind === TokenKind.For) {
+      this.advance();
+      const variable = this.consume(TokenKind.Identifier, "loop variable").value;
+      this.consume(TokenKind.In, "'in'");
+      const iterable = this.parseExpression();
+
+      // Optional where clause
+      let filter: Expression | undefined;
+      if (this.check(TokenKind.Where)) {
+        this.advance();
+        filter = this.parseExpression();
+      }
+
+      // Expect "collect" identifier
+      const collectToken = this.current();
+      if (collectToken.kind !== TokenKind.Identifier || collectToken.value !== "collect") {
+        throw this.error(`Expected 'collect' in comprehension, got '${collectToken.value}'`);
+      }
+      this.advance();
+
+      const body = this.parseExpression();
+      this.consume(TokenKind.End, "'end'");
+
+      return {
+        kind: "ComprehensionExpr",
+        variable,
+        iterable,
+        filter,
+        body,
+        position: { line: token.line, column: token.column },
+      };
+    }
+
     // all [expr1, expr2, ...] — concurrent await
     if (token.kind === TokenKind.All) {
       this.advance();
