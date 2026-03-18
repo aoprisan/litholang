@@ -5,6 +5,11 @@
   "version": "0.2.0",
   "publisher": "litholang",
   "license": "MIT",
+  "icon": "icons/litho-icon.png",
+  "galleryBanner": {
+    "color": "#1e1e2e",
+    "theme": "dark"
+  },
   "engines": {
     "vscode": "^1.75.0"
   },
@@ -31,7 +36,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "watch": "tsc -watch -p tsconfig.json",
-    "package": "npx @vscode/vsce package"
+    "package": "vsce package",
+    "publish": "vsce publish"
   },
   "dependencies": {
     "vscode-languageclient": "^9.0.1",
@@ -40,6 +46,7 @@
   },
   "devDependencies": {
     "@types/vscode": "^1.75.0",
+    "@vscode/vsce": "^3.0.0",
     "typescript": "^5.0.0"
   },
   "contributes": {
@@ -54,11 +61,7 @@
         "extensions": [
           ".litho"
         ],
-        "configuration": "./language-configuration.json",
-        "icon": {
-          "light": "./icons/litho-light.png",
-          "dark": "./icons/litho-dark.png"
-        }
+        "configuration": "./language-configuration.json"
       }
     ],
     "grammars": [
