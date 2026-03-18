@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Litho Playground</title>
+  <style>
+    :root {
+      --bg: #1e1e2e;
+      --surface: #181825;
+      --border: #313244;
+      --text: #cdd6f4;
+      --muted: #a6adc8;
+      --accent: #89b4fa;
+      --green: #a6e3a1;
+      --red: #f38ba8;
+      --yellow: #f9e2af;
+      --font: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 20px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+
+    header h1 {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--accent);
+    }
+
+    header .actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    button {
+      font-family: var(--font);
+      font-size: 13px;
+      padding: 6px 16px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--surface);
+      color: var(--text);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    button:hover { border-color: var(--accent); color: var(--accent); }
+    button.primary { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+    button.primary:hover { opacity: 0.9; }
+
+    .container {
+      flex: 1;
+      display: flex;
+      min-height: 0;
+    }
+
+    .panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    .panel + .panel { border-left: 1px solid var(--border); }
+
+    .panel-header {
+      padding: 8px 16px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--muted);
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .panel-header .status {
+      font-weight: 400;
+      text-transform: none;
+      letter-spacing: 0;
+    }
+
+    .panel-header .status.ok { color: var(--green); }
+    .panel-header .status.error { color: var(--red); }
+
+    textarea, .output {
+      flex: 1;
+      padding: 16px;
+      font-family: var(--font);
+      font-size: 14px;
+      line-height: 1.6;
+      background: var(--bg);
+      color: var(--text);
+      border: none;
+      resize: none;
+      outline: none;
+      tab-size: 2;
+      overflow: auto;
+    }
+
+    .output {
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .output.has-error {
+      color: var(--red);
+    }
+
+    .examples-bar {
+      padding: 8px 16px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .examples-bar span {
+      font-size: 12px;
+      color: var(--muted);
+      margin-right: 4px;
+    }
+
+    .examples-bar button {
+      font-size: 11px;
+      padding: 3px 10px;
+    }
+
+    @media (max-width: 768px) {
+      .container { flex-direction: column; }
+      .panel + .panel { border-left: none; border-top: 1px solid var(--border); }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Litho Playground</h1>
+    <div class="actions">
+      <button onclick="formatSource()">Format</button>
+      <button class="primary" onclick="compileSource()">Compile</button>
+    </div>
+  </header>
+
+  <div class="examples-bar">
+    <span>Examples:</span>
+    <button onclick="loadExample('hello')">Hello World</button>
+    <button onclick="loadExample('pipeline')">Pipeline</button>
+    <button onclick="loadExample('tuples')">Tuples</button>
+    <button onclick="loadExample('match')">Pattern Match</button>
+    <button onclick="loadExample('error')">Error Handling</button>
+    <button onclick="loadExample('tailrec')">Tail Recursion</button>
+  </div>
+
+  <div class="container">
+    <div class="panel">
+      <div class="panel-header">
+        Litho Source
+        <span class="status" id="source-status"></span>
+      </div>
+      <textarea id="editor" spellcheck="false" placeholder="Write Litho code here..."></textarea>
+    </div>
+    <div class="panel">
+      <div class="panel-header">
+        TypeScript Output
+        <span class="status" id="output-status"></span>
+      </div>
+      <div class="output" id="output"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    // Import Litho compiler from the bundled dist
+    // In production this would be a bundled JS file;
+    // for local dev, serve from the dist directory
+    let Lexer, Parser, TypeChecker, TypeScriptEmitter, Formatter, formatDiagnostics;
+
+    async function loadCompiler() {
+      try {
+        const mod = await import("../dist/index.js");
+        Lexer = mod.Lexer;
+        Parser = mod.Parser;
+        TypeChecker = mod.TypeChecker;
+        TypeScriptEmitter = mod.TypeScriptEmitter;
+        Formatter = mod.Formatter;
+        formatDiagnostics = mod.formatDiagnostics;
+        document.getElementById("source-status").textContent = "compiler loaded";
+        document.getElementById("source-status").className = "status ok";
+      } catch (e) {
+        document.getElementById("source-status").textContent = "compiler not loaded - serve from repo root";
+        document.getElementById("source-status").className = "status error";
+        console.error("Failed to load compiler:", e);
+      }
+    }
+
+    function compile(source) {
+      const lexer = new Lexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new Parser(tokens);
+      const ast = parser.parse();
+
+      const checker = new TypeChecker();
+      const typeErrors = checker.check(ast);
+
+      if (typeErrors.length > 0) {
+        return {
+          ok: false,
+          error: formatDiagnostics(source, "playground.litho", typeErrors),
+        };
+      }
+
+      const emitter = new TypeScriptEmitter();
+      return { ok: true, output: emitter.emit(ast) };
+    }
+
+    function format(source) {
+      const lexer = new Lexer(source);
+      const tokens = lexer.tokenize();
+      const parser = new Parser(tokens);
+      const ast = parser.parse();
+      const formatter = new Formatter();
+      return formatter.format(ast);
+    }
+
+    window.compileSource = function () {
+      const source = document.getElementById("editor").value;
+      const outputEl = document.getElementById("output");
+      const statusEl = document.getElementById("output-status");
+
+      if (!Lexer) {
+        outputEl.textContent = "Compiler not loaded. Serve the playground from the repo root:\n\n  npx serve .";
+        outputEl.className = "output has-error";
+        return;
+      }
+
+      try {
+        const result = compile(source);
+        if (result.ok) {
+          outputEl.textContent = result.output;
+          outputEl.className = "output";
+          statusEl.textContent = "compiled";
+          statusEl.className = "status ok";
+        } else {
+          outputEl.textContent = result.error;
+          outputEl.className = "output has-error";
+          statusEl.textContent = "type errors";
+          statusEl.className = "status error";
+        }
+      } catch (e) {
+        outputEl.textContent = e.message;
+        outputEl.className = "output has-error";
+        statusEl.textContent = "parse error";
+        statusEl.className = "status error";
+      }
+    };
+
+    window.formatSource = function () {
+      const editor = document.getElementById("editor");
+      if (!Lexer) return;
+      try {
+        editor.value = format(editor.value);
+        document.getElementById("source-status").textContent = "formatted";
+        document.getElementById("source-status").className = "status ok";
+      } catch (e) {
+        document.getElementById("source-status").textContent = "format error";
+        document.getElementById("source-status").className = "status error";
+      }
+    };
+
+    const examples = {
+      hello: `@purpose "A simple greeting"
+
+define greet(name: Text) -> Text as
+  return "Hello, " + name + "!"
+end
+
+define main() -> Void as
+  message = greet("world")
+  print(message)
+end`,
+
+      pipeline: `struct Sale has
+  category: Text
+  amount: Number
+  active: Boolean
+end
+
+define total_active_revenue(sales: List<Sale>) -> Number as
+  return sales
+    |> filter(where .active == true)
+    |> sort(by .amount, descending)
+    |> sum(of .amount)
+end`,
+
+      tuples: `define min_max(items: List<Number>) -> Tuple<Number, Number> as
+  sorted = items |> sort()
+  lo = sorted |> first
+  hi = sorted |> last
+  return (lo, hi)
+end
+
+define format_range(bounds: Tuple<Number, Number>) -> Text as
+  match bounds on
+    case (lo, hi) where lo == hi => return "exactly " + to_text(lo)
+    case (lo, hi) => return to_text(lo) + " to " + to_text(hi)
+  end
+end
+
+define divide(a: Number, b: Number) -> Result<Tuple<Number, Number>, Text> as
+  check b != 0 or return err("division by zero")
+  return ok((a / b, a % b))
+end`,
+
+      match: `enum Shape is
+  Circle(radius: Number)
+  Rectangle(width: Number, height: Number)
+  Point
+end
+
+define area(s: Shape) -> Number as
+  match s on
+    case Circle(r) => r * r * 3.14159
+    case Rectangle(dims) => dims
+    case Point => 0
+  end
+end
+
+enum OrderStatus is
+  Pending
+  Paid
+  Shipped
+end
+
+define transition(status: OrderStatus, action: Text) -> Result<OrderStatus, Text> as
+  match (status, action) on
+    case (Pending, "pay") => return ok(Paid)
+    case (Paid, "ship") => return ok(Shipped)
+    case (_, _) => return err("invalid transition")
+  end
+end`,
+
+      error: `struct User has
+  email: Text
+  age: Number
+end
+
+define validate_user(email: Text, age: Number) -> Result<User, Text> as
+  check email != "" or return err("Email is required")
+  check age >= 0 or return err("Age must be non-negative")
+  check age < 150 or return err("Age seems unrealistic")
+
+  return ok(User(email: email, age: age))
+end
+
+define register(email: Text, age: Number) -> Result<Text, Text> as
+  user = validate_user(email, age)?
+  return ok("Registered " + user.email)
+end`,
+
+      tailrec: `@tailrec
+define factorial(n: Number, acc: Number) -> Number as
+  if n <= 1 then
+    return acc
+  else
+    return factorial(n - 1, n * acc)
+  end
+end
+
+@tailrec
+define sum_list(items: List<Number>, acc: Number) -> Number as
+  check items.length > 0 or return acc
+  head = items |> first
+  tail = items |> skip(1)
+  return sum_list(tail, acc + head)
+end`,
+    };
+
+    window.loadExample = function (name) {
+      document.getElementById("editor").value = examples[name] || "";
+      document.getElementById("output").textContent = "";
+      document.getElementById("output").className = "output";
+      document.getElementById("output-status").textContent = "";
+      document.getElementById("source-status").textContent = "";
+    };
+
+    // Auto-compile on Ctrl/Cmd+Enter
+    document.getElementById("editor").addEventListener("keydown", (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        e.preventDefault();
+        window.compileSource();
+      }
+      // Tab inserts 2 spaces
+      if (e.key === "Tab") {
+        e.preventDefault();
+        const ta = e.target;
+        const start = ta.selectionStart;
+        ta.value = ta.value.substring(0, start) + "  " + ta.value.substring(ta.selectionEnd);
+        ta.selectionStart = ta.selectionEnd = start + 2;
+      }
+    });
+
+    // Load compiler and default example
+    await loadCompiler();
+    window.loadExample("hello");
+  </script>
+</body>
+</html>

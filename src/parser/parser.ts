@@ -582,7 +582,7 @@ export class Parser {
           stmts.push(this.parseStatement());
           this.skipNewlines();
         }
-        cases.push({ pattern, guard, body: stmts });
+        cases.push({ pattern, ...(guard ? { guard } : {}), body: stmts });
       } else {
         // Could be expression or assignment
         if (
@@ -600,11 +600,11 @@ export class Parser {
             stmts.push(this.parseStatement());
             this.skipNewlines();
           }
-          cases.push({ pattern, guard, body: stmts });
+          cases.push({ pattern, ...(guard ? { guard } : {}), body: stmts });
         } else {
           const expr = this.parseExpression();
           this.skipNewlines();
-          cases.push({ pattern, guard, body: expr });
+          cases.push({ pattern, ...(guard ? { guard } : {}), body: expr });
         }
       }
     }

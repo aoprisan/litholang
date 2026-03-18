@@ -14,10 +14,14 @@ import {
   CompletionItemKind,
 } from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
-import { Lexer } from "../../src/lexer/lexer.js";
-import { Parser } from "../../src/parser/parser.js";
-import { TypeChecker, LithoType } from "../../src/typechecker/typechecker.js";
-import type { TypeError } from "../../src/typechecker/typechecker.js";
+// Import from the built compiler package
+import {
+  Lexer,
+  Parser,
+  TypeChecker,
+  formatDiagnostics,
+} from "litholang";
+import type { LithoType, TypeError } from "litholang";
 
 const connection = createConnection(ProposedFeatures.all);
 const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);

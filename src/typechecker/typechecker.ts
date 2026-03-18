@@ -361,7 +361,7 @@ export class TypeChecker {
       case "StructPattern":
         for (const f of pattern.fields) {
           const fieldType = matchedType?.kind === "struct"
-            ? matchedType.fields.get(f.name)
+            ? matchedType.fields.get(f.fieldName)
             : undefined;
           this.bindPattern(f.pattern, scope, fieldType);
         }
@@ -660,7 +660,7 @@ export class TypeChecker {
       case "RangeExpr": {
         this.inferExpression(expr.start, scope);
         this.inferExpression(expr.end, scope);
-        return { kind: "list", element: { kind: "number" } };
+        return { kind: "list", element: { kind: "primitive", name: "Number" } };
       }
     }
   }
