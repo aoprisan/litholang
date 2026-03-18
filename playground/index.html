@@ -198,7 +198,10 @@
 
     async function loadCompiler() {
       try {
-        const mod = await import("../dist/index.js");
+        // Resolve dist relative to this page — works both when served from
+        // repo root (../dist) and when deployed at site root (./dist)
+        const base = location.pathname.includes("/playground/") ? "../dist" : "./dist";
+        const mod = await import(`${base}/index.js`);
         Lexer = mod.Lexer;
         Parser = mod.Parser;
         TypeChecker = mod.TypeChecker;
