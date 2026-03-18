@@ -1,5 +1,12 @@
 @purpose "Process daily sales and generate report"
 
+struct Sale has
+  date: Date
+  status: Text
+  category: Text
+  amount: Number
+end
+
 struct Report has
   date: Date
   total_revenue: Number
@@ -30,4 +37,40 @@ define daily_report(date: Date) -> Result<Report, Error> as
   )
 
   return ok(report)
+end
+
+-- Enumerate to produce numbered line items
+define format_line(entry: Tuple<Number, Sale>) -> Text as
+  match entry on
+    case (i, sale) => return to_text(i + 1) + ". " + sale.category + ": $" + to_text(sale.amount)
+  end
+end
+
+define numbered_receipt(sales: List<Sale>) -> List<Text> as
+  return sales
+    |> enumerate()
+    |> map(each entry => format_line(entry))
+    |> collect
+end
+
+-- Zip to compare two days side by side
+define compare_days(today: List<Sale>, yesterday: List<Sale>) -> List<Tuple<Number, Number>> as
+  today_amounts = today |> map(of .amount) |> collect
+  yesterday_amounts = yesterday |> map(of .amount) |> collect
+  return today_amounts
+    |> zip(yesterday_amounts)
+    |> collect
+end
+
+-- Destructure comparison tuples to compute deltas
+define compute_delta(pair: Tuple<Number, Number>) -> Number as
+  match pair on
+    case (today_amt, yesterday_amt) => return today_amt - yesterday_amt
+  end
+end
+
+define revenue_deltas(pairs: List<Tuple<Number, Number>>) -> List<Number> as
+  return pairs
+    |> map(each p => compute_delta(p))
+    |> collect
 end

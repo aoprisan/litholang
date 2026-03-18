@@ -58,3 +58,16 @@ define create_order(id: Text, items: List<Item>, discount: Number = 0) -> Order 
   final_total = raw_total - discount
   return Order(id: id, status: Pending, items: items, total: final_total)
 end
+
+-- Batch transition: process multiple (order, action) pairs
+define run_command(cmd: Tuple<Order, Text>) -> Result<Order, Text> as
+  match cmd on
+    case (order, action) => return transition(order, action)
+  end
+end
+
+define batch_transition(commands: List<Tuple<Order, Text>>) -> List<Result<Order, Text>> as
+  return commands
+    |> map(each cmd => run_command(cmd))
+    |> collect
+end

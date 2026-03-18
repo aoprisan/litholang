@@ -1,0 +1,80 @@
+-- Tuple Types & Destructuring Example
+-- Demonstrates Tuple<A, B>, tuple expressions, pattern matching,
+-- enumerate, zip, and nested tuples.
+
+struct Student has
+  name: Text
+  grade: Number
+end
+
+-- Return a tuple from a function
+define min_max(items: List<Number>) -> Tuple<Number, Number> as
+  sorted = items |> sort()
+  lo = sorted |> first
+  hi = sorted |> last
+  return (lo, hi)
+end
+
+-- Destructure tuples in match
+define format_range(bounds: Tuple<Number, Number>) -> Text as
+  match bounds on
+    case (lo, hi) where lo == hi => return "exactly " + to_text(lo)
+    case (lo, hi) => return to_text(lo) + " to " + to_text(hi)
+  end
+end
+
+-- Enumerate: List<T> -> List<Tuple<Number, T>>
+define format_numbered(pair: Tuple<Number, Student>) -> Text as
+  match pair on
+    case (i, s) => return to_text(i + 1) + ". " + s.name
+  end
+end
+
+define numbered_names(students: List<Student>) -> List<Text> as
+  return students
+    |> enumerate()
+    |> map(each pair => format_numbered(pair))
+    |> collect
+end
+
+-- Zip: List<T> |> zip(List<U>) -> List<Tuple<T, U>>
+define make_student(entry: Tuple<Text, Number>) -> Student as
+  match entry on
+    case (name, grade) => return Student(name: name, grade: grade)
+  end
+end
+
+define pair_students(names: List<Text>, grades: List<Number>) -> List<Student> as
+  return names
+    |> zip(grades)
+    |> map(each entry => make_student(entry))
+    |> collect
+end
+
+-- Nested tuples: Tuple<Text, Tuple<Number, Number>>
+define labeled_range(label: Text, items: List<Number>) -> Tuple<Text, Tuple<Number, Number>> as
+  bounds = min_max(items)
+  return (label, bounds)
+end
+
+define describe_range(data: Tuple<Text, Tuple<Number, Number>>) -> Text as
+  match data on
+    case (label, (lo, hi)) => return label + ": " + to_text(lo) + " to " + to_text(hi)
+  end
+end
+
+-- Tuple as lightweight return for multiple values
+define divide(a: Number, b: Number) -> Result<Tuple<Number, Number>, Text> as
+  check b != 0 or return err("division by zero")
+  quotient = a / b
+  remainder = a % b
+  return ok((quotient, remainder))
+end
+
+define format_division(a: Number, b: Number) -> Result<Text, Text> as
+  result = divide(a, b)?
+  match result on
+    case (q, r) =>
+      return ok(to_text(q) + " remainder " + to_text(r))
+  end
+end
