@@ -1,8 +1,8 @@
 {
   "name": "litholang",
   "displayName": "LithoLang",
-  "description": "Language support for LithoLang — a programming language designed for LLM code generation that transpiles to TypeScript",
-  "version": "0.1.0",
+  "description": "Language support for LithoLang — syntax highlighting, diagnostics, hover, and completions",
+  "version": "0.2.0",
   "publisher": "litholang",
   "license": "MIT",
   "engines": {
@@ -10,7 +10,8 @@
   },
   "categories": [
     "Programming Languages",
-    "Snippets"
+    "Snippets",
+    "Linters"
   ],
   "keywords": [
     "litho",
@@ -22,6 +23,24 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/litholang/litholang"
+  },
+  "main": "./out/src/extension.js",
+  "activationEvents": [
+    "onLanguage:litho"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "watch": "tsc -watch -p tsconfig.json",
+    "package": "npx @vscode/vsce package"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1",
+    "vscode-languageserver": "^9.0.1",
+    "vscode-languageserver-textdocument": "^1.0.11"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.75.0",
+    "typescript": "^5.0.0"
   },
   "contributes": {
     "languages": [

@@ -12,6 +12,7 @@
     { "include": "#keywords-declaration" },
     { "include": "#keywords-operator-word" },
     { "include": "#builtin-types" },
+    { "include": "#builtin-functions" },
     { "include": "#function-definition" },
     { "include": "#struct-definition" },
     { "include": "#enum-definition" },
@@ -76,26 +77,44 @@
     },
     "keywords-declaration": {
       "name": "keyword.declaration.litho",
-      "match": "\\b(define|struct|enum|type|import|from)\\b"
+      "match": "\\b(define|struct|enum|type|import|from|extern|export)\\b"
     },
     "keywords-control": {
       "name": "keyword.control.litho",
-      "match": "\\b(if|then|else|for|in|do|match|on|case|return|check|end|async|await)\\b"
+      "match": "\\b(if|then|else|for|in|do|match|on|case|return|check|end|async|await|repeat|while|try|rescue)\\b"
     },
     "keywords-operator-word": {
       "name": "keyword.operator.word.litho",
-      "match": "\\b(and|or|not|is|as|has|with|where|each|all|self)\\b"
+      "match": "\\b(and|or|not|is|as|has|with|where|each|all|self|of|by|collect)\\b"
     },
     "builtin-types": {
       "name": "support.type.litho",
-      "match": "\\b(Text|Number|Boolean|Void|List|Map|Set|Maybe|Result|Duration|Date|Timestamp)\\b"
+      "match": "\\b(Text|Number|Boolean|Void|List|Map|Set|Maybe|Result|Tuple|Duration|Date|Timestamp)\\b"
+    },
+    "builtin-functions": {
+      "name": "support.function.litho",
+      "match": "\\b(ok|err|some|none|print|range|filter|map|sort|sum|first|last|skip|take|enumerate|zip|group|flatten|contains|length|to_text|to_number)\\b"
     },
     "function-definition": {
-      "match": "\\b(define)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\(",
-      "captures": {
-        "1": { "name": "keyword.declaration.litho" },
-        "2": { "name": "entity.name.function.litho" }
-      }
+      "patterns": [
+        {
+          "match": "\\b(extern)\\s+(async\\s+)?(define)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\(",
+          "captures": {
+            "1": { "name": "keyword.declaration.litho" },
+            "2": { "name": "keyword.control.litho" },
+            "3": { "name": "keyword.declaration.litho" },
+            "4": { "name": "entity.name.function.litho" }
+          }
+        },
+        {
+          "match": "\\b(async\\s+)?(define)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\(",
+          "captures": {
+            "1": { "name": "keyword.control.litho" },
+            "2": { "name": "keyword.declaration.litho" },
+            "3": { "name": "entity.name.function.litho" }
+          }
+        }
+      ]
     },
     "struct-definition": {
       "match": "\\b(struct)\\s+([A-Z][a-zA-Z0-9]*)\\s+(has)\\b",
@@ -130,6 +149,10 @@
         {
           "name": "keyword.operator.propagate.litho",
           "match": "\\?"
+        },
+        {
+          "name": "keyword.operator.range.litho",
+          "match": "\\.\\."
         },
         {
           "name": "keyword.operator.comparison.litho",

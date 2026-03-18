@@ -126,5 +126,78 @@
       "type ${1:Name} = ${0:Type}"
     ],
     "description": "Type alias"
+  },
+  "Extern Function": {
+    "prefix": "extern",
+    "body": [
+      "extern define ${1:name}(${2:param}: ${3:Type}) -> ${4:ReturnType}",
+      "  from \"${5:module}\"",
+      "end"
+    ],
+    "description": "External function declaration (FFI)"
+  },
+  "Async Extern Function": {
+    "prefix": "aextern",
+    "body": [
+      "extern async define ${1:name}(${2:param}: ${3:Type}) -> ${4:ReturnType}",
+      "  from \"${5:module}\"",
+      "end"
+    ],
+    "description": "Async external function declaration (FFI)"
+  },
+  "Try-Rescue": {
+    "prefix": "try",
+    "body": [
+      "try",
+      "  $1",
+      "rescue ${2:err}",
+      "  $0",
+      "end"
+    ],
+    "description": "Try-rescue error handling block"
+  },
+  "Repeat While": {
+    "prefix": "repeat",
+    "body": [
+      "repeat while ${1:condition} do",
+      "  $0",
+      "end"
+    ],
+    "description": "Repeat-while loop"
+  },
+  "Tuple Type": {
+    "prefix": "tuple",
+    "body": [
+      "Tuple<${1:A}, ${2:B}>"
+    ],
+    "description": "Tuple type annotation"
+  },
+  "Match Tuple": {
+    "prefix": "matcht",
+    "body": [
+      "match ${1:expr} on",
+      "  case (${2:a}, ${3:b}) => ${4:result}",
+      "  case (_, _) => ${0:default}",
+      "end"
+    ],
+    "description": "Pattern match on a tuple"
+  },
+  "Tailrec Function": {
+    "prefix": "tailrec",
+    "body": [
+      "@tailrec",
+      "define ${1:name}(${2:param}: ${3:Type}, acc: ${4:Type}) -> ${5:ReturnType} as",
+      "  check ${6:base_condition} or return acc",
+      "  return ${1:name}(${7:next}, ${0:next_acc})",
+      "end"
+    ],
+    "description": "Tail-recursive function with accumulator"
+  },
+  "Check Guard with Error": {
+    "prefix": "checkerr",
+    "body": [
+      "check ${1:condition} or return err(\"${0:error message}\")"
+    ],
+    "description": "Check guard returning an error"
   }
 }
