@@ -1,6 +1,6 @@
 {
   "name": "litholang",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "A programming language designed for LLM code generation — transpiles to TypeScript",
   "type": "module",
   "main": "dist/index.js",
@@ -39,9 +39,9 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/litholang/litholang"
+    "url": "https://github.com/aoprisan/litholang"
   },
-  "homepage": "https://github.com/litholang/litholang",
+  "homepage": "https://github.com/aoprisan/litholang",
   "engines": {
     "node": ">=18"
   }
