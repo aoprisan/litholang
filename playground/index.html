@@ -16,6 +16,20 @@
       --red: #f38ba8;
       --yellow: #f9e2af;
       --font: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+
+      /* Syntax highlighting — Catppuccin Mocha */
+      --syn-keyword: #cba6f7;    /* mauve */
+      --syn-control: #f38ba8;    /* red */
+      --syn-type: #f9e2af;       /* yellow */
+      --syn-string: #a6e3a1;     /* green */
+      --syn-number: #fab387;     /* peach */
+      --syn-comment: #6c7086;    /* overlay0 */
+      --syn-annotation: #74c7ec; /* sapphire */
+      --syn-function: #89b4fa;   /* blue */
+      --syn-operator: #89dceb;   /* sky */
+      --syn-boolean: #fab387;    /* peach */
+      --syn-builtin: #94e2d5;    /* teal */
+      --syn-punctuation: #9399b2; /* overlay2 */
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -103,7 +117,58 @@
     .panel-header .status.ok { color: var(--green); }
     .panel-header .status.error { color: var(--red); }
 
-    textarea, .output {
+    /* Editor with syntax highlighting overlay */
+    .editor-wrap {
+      flex: 1;
+      position: relative;
+      overflow: auto;
+      background: var(--bg);
+    }
+
+    .editor-wrap textarea,
+    .editor-wrap pre {
+      font-family: var(--font);
+      font-size: 14px;
+      line-height: 1.6;
+      padding: 16px;
+      margin: 0;
+      border: none;
+      tab-size: 2;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+
+    .editor-wrap textarea {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: transparent;
+      color: transparent;
+      caret-color: var(--text);
+      resize: none;
+      outline: none;
+      z-index: 2;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .editor-wrap pre {
+      position: relative;
+      z-index: 1;
+      min-height: 100%;
+      color: var(--text);
+      pointer-events: none;
+    }
+
+    .editor-wrap pre code {
+      font-family: inherit;
+      font-size: inherit;
+      line-height: inherit;
+    }
+
+    .output {
       flex: 1;
       padding: 16px;
       font-family: var(--font);
@@ -116,9 +181,6 @@
       outline: none;
       tab-size: 2;
       overflow: auto;
-    }
-
-    .output {
       white-space: pre-wrap;
       word-break: break-word;
     }
@@ -126,6 +188,20 @@
     .output.has-error {
       color: var(--red);
     }
+
+    /* Syntax token classes */
+    .syn-kw { color: var(--syn-keyword); }
+    .syn-ctrl { color: var(--syn-control); }
+    .syn-type { color: var(--syn-type); }
+    .syn-str { color: var(--syn-string); }
+    .syn-num { color: var(--syn-number); }
+    .syn-cmt { color: var(--syn-comment); font-style: italic; }
+    .syn-ann { color: var(--syn-annotation); }
+    .syn-fn { color: var(--syn-function); }
+    .syn-op { color: var(--syn-operator); }
+    .syn-bool { color: var(--syn-boolean); }
+    .syn-bi { color: var(--syn-builtin); }
+    .syn-punc { color: var(--syn-punctuation); }
 
     .examples-bar {
       padding: 8px 16px;
@@ -179,7 +255,10 @@
         Litho Source
         <span class="status" id="source-status"></span>
       </div>
-      <textarea id="editor" spellcheck="false" placeholder="Write Litho code here..."></textarea>
+      <div class="editor-wrap">
+        <textarea id="editor" spellcheck="false" placeholder="Write Litho code here..."></textarea>
+        <pre id="editor-highlight"><code></code></pre>
+      </div>
     </div>
     <div class="panel">
       <div class="panel-header">
@@ -191,15 +270,140 @@
   </div>
 
   <script type="module">
-    // Import Litho compiler from the bundled dist
-    // In production this would be a bundled JS file;
-    // for local dev, serve from the dist directory
+    // ── Syntax highlighters ──────────────────────────────────────────
+
+    function escapeHtml(text) {
+      return text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    }
+
+    // Litho highlighter
+    const lithoRules = [
+      // Comments
+      { re: /--.*$/gm, cls: "syn-cmt" },
+      // Annotations
+      { re: /@[a-zA-Z_][a-zA-Z0-9_]*/g, cls: "syn-ann" },
+      // Strings (double-quoted, with escapes)
+      { re: /"(?:[^"\\]|\\.)*"/g, cls: "syn-str" },
+      // Numbers
+      { re: /\b\d+(?:\.\d+)?\b/g, cls: "syn-num" },
+      // Booleans
+      { re: /\b(?:true|false)\b/g, cls: "syn-bool" },
+      // Declaration keywords
+      { re: /\b(?:define|struct|enum|type|import|from|extern|export)\b/g, cls: "syn-kw" },
+      // Control keywords
+      { re: /\b(?:if|then|else|for|in|do|match|on|case|return|check|end|async|await|repeat|while|try|rescue)\b/g, cls: "syn-ctrl" },
+      // Operator keywords
+      { re: /\b(?:and|or|not|is|as|has|with|where|each|all|self|of|by|collect)\b/g, cls: "syn-op" },
+      // Built-in types
+      { re: /\b(?:Text|Number|Boolean|Void|List|Map|Set|Maybe|Result|Tuple|Duration|Date|Timestamp)\b/g, cls: "syn-type" },
+      // Built-in functions
+      { re: /\b(?:ok|err|some|none|print|range|filter|map|sort|sum|first|last|skip|take|enumerate|zip|group|flatten|contains|length|to_text|to_number)\b/g, cls: "syn-bi" },
+      // Operators
+      { re: /\|>|->|=>|\?\.|==|!=|<=|>=|\.\./g, cls: "syn-op" },
+    ];
+
+    // TypeScript highlighter
+    const tsRules = [
+      // Comments (single-line and multi-line)
+      { re: /\/\/.*$/gm, cls: "syn-cmt" },
+      { re: /\/\*[\s\S]*?\*\//g, cls: "syn-cmt" },
+      // Strings (single, double, backtick)
+      { re: /"(?:[^"\\]|\\.)*"/g, cls: "syn-str" },
+      { re: /'(?:[^'\\]|\\.)*'/g, cls: "syn-str" },
+      { re: /`(?:[^`\\]|\\.)*`/g, cls: "syn-str" },
+      // Numbers
+      { re: /\b\d+(?:\.\d+)?\b/g, cls: "syn-num" },
+      // Booleans / null / undefined
+      { re: /\b(?:true|false|null|undefined)\b/g, cls: "syn-bool" },
+      // Keywords
+      { re: /\b(?:function|const|let|var|return|if|else|for|while|do|switch|case|break|continue|new|this|class|interface|type|enum|export|import|from|async|await|try|catch|throw|typeof|instanceof|default|extends|implements|of|in|yield|delete|void)\b/g, cls: "syn-kw" },
+      // TypeScript types
+      { re: /\b(?:string|number|boolean|any|never|unknown|object|bigint|symbol|readonly)\b/g, cls: "syn-type" },
+      // Known runtime functions
+      { re: /\b(?:console|Math|Array|Object|Promise|Map|Set|JSON)\b/g, cls: "syn-bi" },
+      // Operators
+      { re: /=>|===|!==|==|!=|<=|>=|\?\?|\?\./g, cls: "syn-op" },
+    ];
+
+    function highlight(source, rules) {
+      // Build a list of spans: { start, end, cls }
+      // Process rules in order; earlier rules win on overlap
+      const spans = [];
+      const taken = new Uint8Array(source.length); // 0 = free, 1 = claimed
+
+      for (const rule of rules) {
+        rule.re.lastIndex = 0;
+        let m;
+        while ((m = rule.re.exec(source)) !== null) {
+          const start = m.index;
+          const end = start + m[0].length;
+          // Check no overlap with previously claimed ranges
+          let overlap = false;
+          for (let i = start; i < end; i++) {
+            if (taken[i]) { overlap = true; break; }
+          }
+          if (overlap) continue;
+          for (let i = start; i < end; i++) taken[i] = 1;
+          spans.push({ start, end, cls: rule.cls });
+        }
+      }
+
+      // Sort spans by start position
+      spans.sort((a, b) => a.start - b.start);
+
+      // Build highlighted HTML
+      let html = "";
+      let pos = 0;
+      for (const span of spans) {
+        if (span.start > pos) {
+          html += escapeHtml(source.slice(pos, span.start));
+        }
+        html += `<span class="${span.cls}">${escapeHtml(source.slice(span.start, span.end))}</span>`;
+        pos = span.end;
+      }
+      if (pos < source.length) {
+        html += escapeHtml(source.slice(pos));
+      }
+
+      // Ensure trailing newline so the pre height matches the textarea
+      if (!html.endsWith("\n")) html += "\n";
+
+      return html;
+    }
+
+    function highlightLitho(source) {
+      return highlight(source, lithoRules);
+    }
+
+    function highlightTypeScript(source) {
+      return highlight(source, tsRules);
+    }
+
+    // ── Editor sync ──────────────────────────────────────────────────
+
+    const editorEl = document.getElementById("editor");
+    const highlightEl = document.querySelector("#editor-highlight code");
+
+    function syncHighlight() {
+      highlightEl.innerHTML = highlightLitho(editorEl.value);
+    }
+
+    editorEl.addEventListener("input", syncHighlight);
+    editorEl.addEventListener("scroll", () => {
+      const pre = document.getElementById("editor-highlight");
+      pre.scrollTop = editorEl.scrollTop;
+      pre.scrollLeft = editorEl.scrollLeft;
+    });
+
+    // ── Compiler ─────────────────────────────────────────────────────
+
     let Lexer, Parser, TypeChecker, TypeScriptEmitter, Formatter, formatDiagnostics;
 
     async function loadCompiler() {
       try {
-        // Resolve dist relative to this page — works both when served from
-        // repo root (../dist) and when deployed at site root (./dist)
         const base = location.pathname.includes("/playground/") ? "../dist" : "./dist";
         const mod = await import(`${base}/index.js`);
         Lexer = mod.Lexer;
@@ -247,7 +451,7 @@
     }
 
     window.compileSource = function () {
-      const source = document.getElementById("editor").value;
+      const source = editorEl.value;
       const outputEl = document.getElementById("output");
       const statusEl = document.getElementById("output-status");
 
@@ -260,7 +464,7 @@
       try {
         const result = compile(source);
         if (result.ok) {
-          outputEl.textContent = result.output;
+          outputEl.innerHTML = highlightTypeScript(result.output);
           outputEl.className = "output";
           statusEl.textContent = "compiled";
           statusEl.className = "status ok";
@@ -279,10 +483,10 @@
     };
 
     window.formatSource = function () {
-      const editor = document.getElementById("editor");
       if (!Lexer) return;
       try {
-        editor.value = format(editor.value);
+        editorEl.value = format(editorEl.value);
+        syncHighlight();
         document.getElementById("source-status").textContent = "formatted";
         document.getElementById("source-status").className = "status ok";
       } catch (e) {
@@ -400,7 +604,8 @@ end`,
     };
 
     window.loadExample = function (name) {
-      document.getElementById("editor").value = examples[name] || "";
+      editorEl.value = examples[name] || "";
+      syncHighlight();
       document.getElementById("output").textContent = "";
       document.getElementById("output").className = "output";
       document.getElementById("output-status").textContent = "";
@@ -408,7 +613,7 @@ end`,
     };
 
     // Auto-compile on Ctrl/Cmd+Enter
-    document.getElementById("editor").addEventListener("keydown", (e) => {
+    editorEl.addEventListener("keydown", (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
         e.preventDefault();
         window.compileSource();
@@ -420,6 +625,7 @@ end`,
         const start = ta.selectionStart;
         ta.value = ta.value.substring(0, start) + "  " + ta.value.substring(ta.selectionEnd);
         ta.selectionStart = ta.selectionEnd = start + 2;
+        syncHighlight();
       }
     });
 
