@@ -1,6 +1,6 @@
 {
   "name": "litholang",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "A programming language designed for LLM code generation — transpiles to TypeScript",
   "type": "module",
   "main": "dist/index.js",
