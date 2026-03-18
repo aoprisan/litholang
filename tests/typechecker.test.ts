@@ -771,3 +771,52 @@ end`);
     expect(errors).toEqual([]);
   });
 });
+
+describe("tuple pattern matching with type propagation", () => {
+  it("infers types from tuple destructuring in match", () => {
+    const errors = check(`define test(pair: Tuple<Number, Text>) -> Text as
+  match pair on
+    case (n, s) => return s
+  end
+end`);
+    expect(errors).toEqual([]);
+  });
+
+  it("detects return type mismatch from destructured tuple variable", () => {
+    const errors = check(`define test(pair: Tuple<Number, Text>) -> Number as
+  match pair on
+    case (n, s) => return s
+  end
+end`);
+    expect(errors.length).toBe(1);
+    expect(errors[0].message).toContain("Return type mismatch");
+  });
+
+  it("infers types from nested tuple destructuring", () => {
+    const errors = check(`define test(data: Tuple<Number, Tuple<Text, Boolean>>) -> Text as
+  match data on
+    case (n, (s, b)) => return s
+  end
+end`);
+    expect(errors).toEqual([]);
+  });
+
+  it("infers types from tuple expression match subject", () => {
+    const errors = check(`define test(x: Number, y: Text) -> Text as
+  match (x, y) on
+    case (n, s) => return s
+  end
+end`);
+    expect(errors).toEqual([]);
+  });
+
+  it("correctly types variables when matching tuple with literals", () => {
+    const errors = check(`define test(pair: Tuple<Number, Text>) -> Text as
+  match pair on
+    case (1, s) => return s
+    case (_, s) => return s
+  end
+end`);
+    expect(errors).toEqual([]);
+  });
+});

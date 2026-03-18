@@ -277,8 +277,8 @@ export class TypeChecker {
         const subjectType = this.inferExpression(stmt.subject, scope);
         for (const matchCase of stmt.cases) {
           const caseScope = createScope(scope);
-          // Bind pattern identifiers
-          this.bindPattern(matchCase.pattern, caseScope);
+          // Bind pattern identifiers with types from subject
+          this.bindPattern(matchCase.pattern, caseScope, subjectType);
           // Type check guard expression
           if (matchCase.guard) {
             this.inferExpression(matchCase.guard, caseScope);
@@ -325,14 +325,18 @@ export class TypeChecker {
   private bindPattern(
     pattern: import("../parser/ast.js").Pattern,
     scope: Scope,
+    matchedType?: LithoType,
   ): void {
     switch (pattern.kind) {
       case "IdentifierPattern":
-        scope.variables.set(pattern.name, { kind: "unknown" });
+        scope.variables.set(pattern.name, matchedType ?? { kind: "unknown" });
         break;
       case "TuplePattern":
-        for (const el of pattern.elements) {
-          this.bindPattern(el, scope);
+        for (let i = 0; i < pattern.elements.length; i++) {
+          const elType = matchedType?.kind === "tuple" && i < matchedType.elements.length
+            ? matchedType.elements[i]
+            : undefined;
+          this.bindPattern(pattern.elements[i], scope, elType);
         }
         break;
       case "ConstructorPattern":
@@ -342,20 +346,24 @@ export class TypeChecker {
         break;
       case "OrPattern":
         for (const p of pattern.patterns) {
-          this.bindPattern(p, scope);
+          this.bindPattern(p, scope, matchedType);
         }
         break;
       case "ListPattern":
         for (const el of pattern.elements) {
-          this.bindPattern(el, scope);
+          const elType = matchedType?.kind === "list" ? matchedType.element : undefined;
+          this.bindPattern(el, scope, elType);
         }
         if (pattern.rest) {
-          scope.variables.set(pattern.rest, { kind: "unknown" });
+          scope.variables.set(pattern.rest, matchedType?.kind === "list" ? matchedType : { kind: "unknown" });
         }
         break;
       case "StructPattern":
         for (const f of pattern.fields) {
-          this.bindPattern(f.pattern, scope);
+          const fieldType = matchedType?.kind === "struct"
+            ? matchedType.fields.get(f.name)
+            : undefined;
+          this.bindPattern(f.pattern, scope, fieldType);
         }
         break;
       default:
