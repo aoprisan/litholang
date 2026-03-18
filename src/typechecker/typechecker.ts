@@ -21,6 +21,7 @@ export type LithoType =
   | { kind: "set"; element: LithoType }
   | { kind: "maybe"; inner: LithoType }
   | { kind: "result"; ok: LithoType; error: LithoType }
+  | { kind: "tuple"; elements: LithoType[] }
   | { kind: "function"; params: LithoType[]; returnType: LithoType }
   | { kind: "struct"; name: string; fields: Map<string, LithoType> }
   | { kind: "enum"; name: string; variants: string[] }
@@ -644,10 +645,8 @@ export class TypeChecker {
       }
 
       case "TupleExpr": {
-        for (const el of expr.elements) {
-          this.inferExpression(el, scope);
-        }
-        return { kind: "unknown" };
+        const elements = expr.elements.map(el => this.inferExpression(el, scope));
+        return { kind: "tuple", elements };
       }
 
       case "RangeExpr": {
@@ -701,7 +700,7 @@ export class TypeChecker {
       }
       case "GenericType": {
         const builtinGenerics = new Set([
-          "List", "Map", "Set", "Maybe", "Result",
+          "List", "Map", "Set", "Maybe", "Result", "Tuple",
         ]);
         if (!builtinGenerics.has(type.name) && !this.typeAliases.has(type.name)) {
           this.addError(`Unknown generic type '${type.name}'`, type.position);
@@ -774,6 +773,12 @@ export class TypeChecker {
             error: this.resolveTypeNode(type.typeArgs[1]),
           };
         }
+        if (type.name === "Tuple" && type.typeArgs.length >= 2) {
+          return {
+            kind: "tuple",
+            elements: type.typeArgs.map(a => this.resolveTypeNode(a)),
+          };
+        }
         return { kind: "named", name: type.name };
       }
       case "FunctionType": {
@@ -820,6 +825,12 @@ export class TypeChecker {
       return source.name === target.name;
     }
 
+    // Tuple assignability (element-wise covariant)
+    if (source.kind === "tuple" && target.kind === "tuple") {
+      if (source.elements.length !== target.elements.length) return false;
+      return source.elements.every((el, i) => this.isAssignable(el, target.elements[i]));
+    }
+
     // Result/Maybe
     if (source.kind === "result" && target.kind === "result") {
       return this.isAssignable(source.ok, target.ok) &&
@@ -846,6 +857,9 @@ export class TypeChecker {
       // A list is never a map and vice versa
       if (source.kind === "list" && target.kind === "map") return false;
       if (source.kind === "map" && target.kind === "list") return false;
+      // A tuple is never a primitive and vice versa
+      if (source.kind === "tuple" && target.kind === "primitive") return false;
+      if (source.kind === "primitive" && target.kind === "tuple") return false;
     }
 
     return true; // default: don't block on uncertain types
@@ -859,6 +873,7 @@ export class TypeChecker {
       case "set": return `Set<${this.typeToString(type.element)}>`;
       case "maybe": return `Maybe<${this.typeToString(type.inner)}>`;
       case "result": return `Result<${this.typeToString(type.ok)}, ${this.typeToString(type.error)}>`;
+      case "tuple": return `Tuple<${type.elements.map(e => this.typeToString(e)).join(", ")}>`;
       case "function": return `(${type.params.map(p => this.typeToString(p)).join(", ")}) -> ${this.typeToString(type.returnType)}`;
       case "struct": return type.name;
       case "enum": return type.name;
@@ -1026,14 +1041,27 @@ export class TypeChecker {
       return { kind: "primitive", name: "Boolean" };
     }
 
-    // enumerate: List<T> -> List<(Number, T)> (modeled as unknown tuple for now)
+    // enumerate: List<T> -> List<Tuple<Number, T>>
     if (calleeName === "enumerate") {
-      return { kind: "list", element: { kind: "unknown" } };
+      return {
+        kind: "list",
+        element: { kind: "tuple", elements: [{ kind: "primitive", name: "Number" }, elementType] },
+      };
     }
 
-    // zip: List<T> -> List<(T, U)>
+    // zip: List<T> |> zip(List<U>) -> List<Tuple<T, U>>
     if (calleeName === "zip") {
-      return { kind: "list", element: { kind: "unknown" } };
+      let secondElementType: LithoType = { kind: "unknown" };
+      if (step.args.length >= 1) {
+        const argType = this.inferExpression(step.args[0].value, scope);
+        if (argType.kind === "list") {
+          secondElementType = argType.element;
+        }
+      }
+      return {
+        kind: "list",
+        element: { kind: "tuple", elements: [elementType, secondElementType] },
+      };
     }
 
     // group: List<T> -> Map<K, List<T>>

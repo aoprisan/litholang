@@ -954,6 +954,9 @@ export class TypeScriptEmitter {
         if (type.name === "Set" && type.typeArgs.length === 1) {
           return `Set<${this.emitType(type.typeArgs[0])}>`;
         }
+        if (type.name === "Tuple" && type.typeArgs.length >= 2) {
+          return `[${type.typeArgs.map((a) => this.emitType(a)).join(", ")}]`;
+        }
         const args = type.typeArgs.map((a) => this.emitType(a)).join(", ");
         return `${type.name}<${args}>`;
       }

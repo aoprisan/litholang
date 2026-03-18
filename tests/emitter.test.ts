@@ -619,3 +619,20 @@ describe("relative import emission", () => {
     expect(output).not.toContain('from "./bar.js.js"');
   });
 });
+
+describe("tuple type emission", () => {
+  it("emits Tuple<A, B> as [A, B] in TypeScript", () => {
+    const output = compileToTS(`define test(pair: Tuple<Number, Text>) -> Tuple<Number, Text> as
+  return pair
+end`);
+    expect(output).toContain("pair: [number, string]");
+    expect(output).toContain(": [number, string]");
+  });
+
+  it("emits Tuple<A, B, C> as [A, B, C]", () => {
+    const output = compileToTS(`define test(t: Tuple<Number, Text, Boolean>) -> Void as
+  return
+end`);
+    expect(output).toContain("t: [number, string, boolean]");
+  });
+});

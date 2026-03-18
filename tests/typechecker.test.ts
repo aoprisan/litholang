@@ -710,3 +710,64 @@ end`);
     expect(errors[0].message).toContain("Return type mismatch");
   });
 });
+
+describe("tuple type inference", () => {
+  it("accepts Tuple type in function signatures", () => {
+    const errors = check(`define test(pair: Tuple<Number, Text>) -> Tuple<Number, Text> as
+  return pair
+end`);
+    expect(errors).toEqual([]);
+  });
+
+  it("infers tuple expression type from elements", () => {
+    const errors = check(`define test() -> Tuple<Number, Text> as
+  return (1, "hello")
+end`);
+    expect(errors).toEqual([]);
+  });
+
+  it("detects tuple element type mismatch", () => {
+    const errors = check(`define test() -> Tuple<Number, Number> as
+  return (1, "hello")
+end`);
+    expect(errors.length).toBe(1);
+    expect(errors[0].message).toContain("Return type mismatch");
+  });
+
+  it("detects tuple vs primitive mismatch", () => {
+    const errors = check(`define test() -> Number as
+  return (1, 2)
+end`);
+    expect(errors.length).toBe(1);
+    expect(errors[0].message).toContain("Return type mismatch");
+  });
+
+  it("infers enumerate returns List<Tuple<Number, T>>", () => {
+    const errors = check(`define test(items: List<Text>) -> List<Tuple<Number, Text>> as
+  return items |> enumerate()
+end`);
+    expect(errors).toEqual([]);
+  });
+
+  it("infers zip returns List<Tuple<T, U>>", () => {
+    const errors = check(`define test(a: List<Number>, b: List<Text>) -> List<Tuple<Number, Text>> as
+  return a |> zip(b)
+end`);
+    expect(errors).toEqual([]);
+  });
+
+  it("detects wrong tuple arity", () => {
+    const errors = check(`define test() -> Tuple<Number, Text> as
+  return (1, "hello", true)
+end`);
+    expect(errors.length).toBe(1);
+    expect(errors[0].message).toContain("Return type mismatch");
+  });
+
+  it("accepts nested tuple types", () => {
+    const errors = check(`define test() -> Tuple<Number, Tuple<Text, Boolean>> as
+  return (1, ("hello", true))
+end`);
+    expect(errors).toEqual([]);
+  });
+});
