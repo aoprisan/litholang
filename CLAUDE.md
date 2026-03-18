@@ -34,6 +34,8 @@ The compiler pipeline flows linearly:
 
 Tests live in `tests/` with one test file per compiler phase (e.g., `tests/lexer.test.ts`, `tests/parser.test.ts`). Example `.litho` programs are in `examples/`.
 
+The `vscode-extension/` directory is a separate VS Code extension project (TextMate grammar, LSP server, snippets) with its own `package.json` and build setup.
+
 ## Design Principles
 
 1. **Explicit Intent** — keywords read as English phrases, no magic methods or operator overloading
